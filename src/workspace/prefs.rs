@@ -35,8 +35,12 @@ impl Workspace {
 
     pub(super) fn set_tab_color_mode(&mut self, mode: TabColorMode, cx: &mut Context<Self>) {
         self.settings.tab_color_mode = mode;
-        write_now(&self.storage.settings_path(), &storage::to_json(&self.settings));
+        self.save_settings();
         cx.notify();
+    }
+
+    pub(super) fn save_settings(&self) {
+        write_now(&self.storage.settings_path(), &storage::to_json(&self.settings));
     }
 
     /// Records a file as recently used and remembers its tab color under that path.

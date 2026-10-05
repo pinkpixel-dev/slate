@@ -6,7 +6,7 @@ I made it because I could never find an editor that hit the spot I wanted. Xed i
 
 It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whole UI on the GPU.
 
-> Slate is still early. A file sidebar and theme and font options are next. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
+> Slate is still early. Theme and font options are next. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
 
 ## What works right now
 
@@ -14,6 +14,7 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - Color-coded tabs: right-click a tab and pick a color, and a thin line along its top makes it easy to find in a crowded row. Pick from presets that follow the theme, or any custom color. Colors are remembered per file, and there's an optional mode that colors tabs by language
 - Open and save files with your desktop's native file dialogs, or from the terminal with `slate notes.md todo.txt`
 - An Open Recent menu next to the Open button
+- A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, and it updates by itself when files change
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, find and replace, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - A dot by the file name when you have unsaved edits, and a Save / Don't Save / Cancel prompt before anything would throw them away
@@ -30,6 +31,8 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+O` | Open |
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
+| `Ctrl+Shift+O` | Open folder |
+| `Ctrl+B` | Show or hide the sidebar |
 | `Ctrl+W` | Close tab |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+F` | Find and replace |
@@ -65,7 +68,7 @@ cd slate
 cargo run --release
 ```
 
-To open files straight away, pass them after `--`. A path that doesn't exist yet opens as an empty file and gets created when you save:
+To open files straight away, pass them after `--`. A folder opens in the sidebar, and a path that doesn't exist yet opens as an empty file and gets created when you save:
 
 ```bash
 cargo run --release -- path/to/file.md

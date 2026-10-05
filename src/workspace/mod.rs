@@ -1,6 +1,7 @@
 mod buffer;
 mod chrome;
 mod files;
+mod folders;
 mod prefs;
 mod tab_menu;
 mod tab_strip;
@@ -15,6 +16,7 @@ use gpui_kit::component::v_flex;
 use gpui_kit::*;
 
 use crate::document::Document;
+use crate::sidebar::Sidebar;
 use crate::storage::{AppState, Settings, Storage};
 use buffer::{Buffer, BufferId};
 
@@ -30,6 +32,8 @@ actions!(
         PreviousTab,
         Quit,
         ToggleWhitespace,
+        ToggleSidebar,
+        OpenFolder,
     ]
 );
 
@@ -48,6 +52,8 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-shift-tab", PreviousTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-pageup", PreviousTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-q", Quit, Some(KEY_CONTEXT)),
+        KeyBinding::new("ctrl-b", ToggleSidebar, Some(KEY_CONTEXT)),
+        KeyBinding::new("ctrl-shift-o", OpenFolder, Some(KEY_CONTEXT)),
     ]);
 }
 
@@ -69,6 +75,9 @@ pub struct Workspace {
     state: AppState,
     show_whitespace: bool,
     tab_scroll: ScrollHandle,
+    sidebar: Entity<Sidebar>,
+    sidebar_open: bool,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl Workspace {
@@ -80,16 +89,23 @@ impl Workspace {
                 .unwrap_or(true)
         });
 
+        let settings = storage.load_settings();
+        let sidebar = cx.new(|cx| Sidebar::new(settings.show_hidden_files, cx));
+        let subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
+
         let mut workspace = Self {
             focus_handle: cx.focus_handle(),
             buffers: Vec::new(),
             active: 0,
             next_buffer_id: 0,
-            settings: storage.load_settings(),
+            settings,
             state: storage.load_state(),
             storage,
             show_whitespace: false,
             tab_scroll: ScrollHandle::new(),
+            sidebar,
+            sidebar_open: false,
+            _subscriptions: subscriptions,
         };
         workspace.new_untitled(window, cx);
         workspace
@@ -209,6 +225,24 @@ impl Workspace {
     }
 }
 
+impl Workspace {
+    /// The tab strip and the active editor.
+    fn render_editor_column(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        v_flex()
+            .size_full()
+            .child(self.render_tab_strip(window, cx))
+            .child(
+                div().flex_1().min_h_0().child(
+                    Editor::new(&self.active_buffer().editor)
+                        .h_full()
+                        .bordered(false)
+                        .aria_label("Editor"),
+                ),
+            )
+            .into_any_element()
+    }
+}
+
 impl Focusable for Workspace {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
@@ -229,18 +263,12 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::quit))
             .on_action(cx.listener(Self::toggle_whitespace))
+            .on_action(cx.listener(Self::toggle_sidebar))
+            .on_action(cx.listener(Self::open_folder))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))
-            .child(self.render_tab_strip(window, cx))
-            .child(
-                div().flex_1().min_h_0().child(
-                    Editor::new(&self.active_buffer().editor)
-                        .h_full()
-                        .bordered(false)
-                        .aria_label("Editor"),
-                ),
-            )
+            .child(div().flex_1().min_h_0().child(self.render_body(window, cx)))
             .child(self.render_status_bar(cx))
     }
 }

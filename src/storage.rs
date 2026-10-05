@@ -14,6 +14,8 @@ const RECENT_LIMIT: usize = 10;
 #[serde(default)]
 pub struct Settings {
     pub tab_color_mode: TabColorMode,
+    /// Show dotfiles and folders like `node_modules` in the sidebar.
+    pub show_hidden_files: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -77,3 +77,19 @@ What was decided: `Workspace::tab_color` returns the buffer's own color first an
 Why: The user wants automatic coloring as a preference, but a color someone chose on purpose shouldn't vanish when the mode is on.
 
 Rejected: Language mode overriding manual colors, which would silently hide colors the user picked.
+
+### Decision: Keep the sidebar's own folder model and rebuild Kit tree items from it
+
+What was decided: `src/file_tree.rs` (`FileTree`) owns loaded folders, expanded folders, and row-id-to-path mapping. `Sidebar::refresh` rebuilds the whole `Vec<TreeItem>` from it after every load, expand, filter toggle, or watcher rescan. Unloaded folders get a disabled "Loading…" child.
+
+Why: Kit 0.7.1's `TreeItem::is_folder` is just "has children", and `TreeState` has no API for adding children to one item later. So lazy loading needs placeholders, and the real state has to live outside Kit.
+
+Rejected: Reading the whole folder recursively up front (too slow for a home folder or a repo with `node_modules`), and writing a custom tree on a virtual list (loses Kit's keyboard navigation and accessibility roles).
+
+### Decision: Don't reopen the last sidebar folder at launch until session restore exists
+
+What was decided: Slate starts with the sidebar hidden and no folder. Bringing back the last folder is planned as part of the optional session restore in phase 5, alongside the last tabs.
+
+Why: Slate is for quick edits. `slate notes.txt` shouldn't come up with last week's project in the sidebar. The user agreed on 2026-10-05.
+
+Rejected: Always reopening the last folder (noise for quick edits), and defaulting to the home folder (a big, unhelpful tree). With no folder open, `Ctrl+B` opens the active file's folder instead.

@@ -36,11 +36,15 @@ impl Workspace {
         .detach();
     }
 
-    /// Opens `path` in a tab, or switches to it if it's already open. With
-    /// `missing_ok`, a path that doesn't exist yet opens as an empty file that
-    /// Save will create.
+    /// Opens `path` in a tab, or switches to it if it's already open. A folder
+    /// opens in the sidebar. With `missing_ok`, a path that doesn't exist yet
+    /// opens as an empty file that Save will create.
     pub fn open_path(&mut self, path: PathBuf, missing_ok: bool, window: &mut Window, cx: &mut Context<Self>) {
         let path = std::path::absolute(&path).unwrap_or(path);
+        if path.is_dir() {
+            self.show_folder(path, cx);
+            return;
+        }
         if self.focus_open_path(&path, window, cx) {
             return;
         }

@@ -25,10 +25,11 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Recent files
 - Open several files from the command line, and start a new file when the path doesn't exist yet
 
-## Phase 3: Sidebar
+## Phase 3: Sidebar ✅
 
-- Toggleable file tree (`Ctrl+B`) for an opened folder
+- Toggleable file tree (`Ctrl+B`) for an opened folder, plus Open Folder (`Ctrl+Shift+O`) and `slate <folder>`
 - Refreshes when files change on disk
+- Hidden files toggle, remembered in settings
 
 ## Phase 4: Theming and settings
 
@@ -41,7 +42,7 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 ## Phase 5: Extras
 
 - Word wrap toggle
-- Session restore
+- Session restore: reopen the last tabs and sidebar folder (optional)
 - Markdown preview split
 - Minimap
 - Command palette (`Ctrl+Shift+P`)

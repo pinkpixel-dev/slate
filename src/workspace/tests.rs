@@ -227,3 +227,56 @@ fn dragging_a_tab_reorders_without_changing_the_active_one(cx: &mut TestAppConte
         assert_eq!(workspace.read(cx).active_buffer().document.display_name(), "Untitled 3");
     });
 }
+
+fn folder_fixture(name: &str) -> PathBuf {
+    let dir = test_dir(name);
+    std::fs::create_dir_all(dir.join("project/src")).unwrap();
+    std::fs::create_dir_all(dir.join("project/.git")).unwrap();
+    std::fs::write(dir.join("project/src/main.rs"), "fn main() {}\n").unwrap();
+    std::fs::write(dir.join("project/README.md"), "# Hi\n").unwrap();
+    dir
+}
+
+/// The rows the sidebar's tree currently shows.
+fn sidebar_labels(cx: &mut TestAppContext, workspace: &Entity<Workspace>) -> Vec<String> {
+    cx.run_until_parked();
+    cx.update(|cx| {
+        let tree_state = workspace.read(cx).sidebar.read(cx).tree_state.clone();
+        let tree_state = tree_state.read(cx);
+        (0..)
+            .map_while(|ix| tree_state.entry(ix))
+            .map(|entry| entry.item().label.to_string())
+            .collect()
+    })
+}
+
+#[gpui_kit::test]
+fn opening_a_folder_shows_it_in_the_sidebar_without_hidden_files(cx: &mut TestAppContext) {
+    let dir = folder_fixture("sidebar");
+    let (handle, workspace) = open_workspace(cx, &dir);
+
+    open_file(cx, handle, &workspace, &dir.join("project"));
+
+    cx.update(|cx| assert!(workspace.read(cx).sidebar_open));
+    assert_eq!(sidebar_labels(cx, &workspace), ["src", "README.md"]);
+}
+
+#[gpui_kit::test]
+fn ctrl_b_opens_the_active_files_folder(cx: &mut TestAppContext) {
+    let dir = folder_fixture("ctrl-b");
+    let (handle, workspace) = open_workspace(cx, &dir);
+    open_file(cx, handle, &workspace, &dir.join("project/README.md"));
+
+    press(cx, handle, "ctrl-b");
+    cx.run_until_parked();
+
+    cx.update(|cx| {
+        let workspace = workspace.read(cx);
+        assert!(workspace.sidebar_open);
+        assert_eq!(workspace.sidebar.read(cx).root(), Some(dir.join("project").as_path()));
+    });
+    assert_eq!(sidebar_labels(cx, &workspace), ["src", "README.md"]);
+
+    press(cx, handle, "ctrl-b");
+    cx.update(|cx| assert!(!workspace.read(cx).sidebar_open));
+}

@@ -10,6 +10,7 @@ This document describes how the project works right now. It is present tense. De
 - [GPUI Kit](https://gpui-kit.com) `0.7.1`. It brings in GPUI (published as `gpui-pre` `0.3.8`, a pinned snapshot of Zed's GPUI), GPUI Base, GPUI Component, and the Lucide icon assets.
 - 22 `tree-sitter-*` Kit features are enabled in `Cargo.toml` for syntax highlighting. JSON highlighting is built into Kit and needs no feature.
 - `serde` and `serde_json` for the settings and state files.
+- `notify` 8.2 (the same version Kit uses for theme reloading) and `futures` for the sidebar's file watcher.
 - `Cargo.lock` pins `cc` to `1.2.67`. See `ERRORS.md` for why.
 - Rendering goes through GPUI's Vulkan backend (wgpu) on Linux, under Wayland or X11. Native file dialogs go through the XDG desktop portal.
 - Tests: plain unit tests plus headless UI tests using Kit's `test-support` feature, which is enabled only under `[dev-dependencies]`.
@@ -18,9 +19,9 @@ This document describes how the project works right now. It is present tense. De
 
 1. `main` collects every command-line argument as a file path, then creates the GPUI application with `assets::AppAssets` and calls `gpui_kit::init`.
 2. `theme::init` loads the bundled `themes/slate.json` into the `ThemeRegistry`, applies **Slate Dark** with `apply_config`, and switches the theme mode to dark.
-3. `workspace::init` binds the shortcuts in the `Workspace` key context.
+3. `sidebar::init` binds Enter in the tree, and `workspace::init` binds the shortcuts in the `Workspace` key context.
 4. A window opens with client-side decorations (`WindowDecorations::Client`) and app id `dev.pinkpixel.Slate`. `Workspace::new(Storage::from_env(), ...)` loads settings and state, then starts with one Untitled tab. `open_window` wraps it in Kit's `Root`, which owns the window border, dialogs, sheets, notifications, and tooltips.
-5. Each command-line path goes through `open_path(path, missing_ok: true)`.
+5. Each command-line path goes through `open_path(path, missing_ok: true)`. A folder opens in the sidebar.
 6. When the last window closes, the app quits.
 
 Invariants:
@@ -38,10 +39,15 @@ Invariants:
 | `src/language.rs` | `Language { id, label }` and `detect(path)` |
 | `src/document.rs` | `Document` (path, language, untitled number, dirty tracking) plus `read_text` and `write_text` |
 | `src/tab_color.rs` | `TabColor` presets and custom colors, theme resolution, language colors |
+| `src/file_tree.rs` | `FileTree`: the sidebar's folder model, `list_dir`, hidden-file filtering, and tree item building |
+| `src/sidebar/mod.rs` | `Sidebar` view: lazy loading, refresh, `SidebarEvent` |
+| `src/sidebar/view.rs` | Sidebar header, empty state, and tree rows |
+| `src/sidebar/watcher.rs` | `DirWatcher`: per-folder `notify` watches with debounced rescans |
 | `src/storage.rs` | `Settings`, `AppState`, `Storage` paths, JSON loading, and atomic writes |
 | `src/workspace/mod.rs` | `Workspace`: buffers, actions, tab bookkeeping, and render |
 | `src/workspace/buffer.rs` | `Buffer` (one tab) and `BufferId` |
 | `src/workspace/files.rs` | Open, Save, Save As, and `open_path` |
+| `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
 | `src/workspace/prefs.rs` | Tab color resolution and writing settings and state |
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
@@ -73,6 +79,8 @@ All in the `Workspace` key context:
 | `PreviousTab` | `Ctrl+Shift+Tab`, `Ctrl+PageUp` | Wraps around |
 | `Quit` | `Ctrl+Q` | `close_window` |
 | `ToggleWhitespace` | none (status bar button) | Applies to every open editor |
+| `ToggleSidebar` | `Ctrl+B` | Shows or hides the sidebar. Showing it with no folder open opens the active file's folder |
+| `OpenFolder` | `Ctrl+Shift+O` | Native folder picker, then `show_folder` |
 
 ### Dirty tracking
 
@@ -109,6 +117,18 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: None, six presets with swatches, Custom... (a dialog with Kit's `ColorSelect`), and a "Color Tabs by Language" check item.
 
+## Sidebar
+
+`Workspace` holds an `Entity<Sidebar>` and a `sidebar_open` flag. When the sidebar is open, `render_body` puts it in a Kit `h_resizable` panel (240px to start, 160 to 480px) to the left of the editor column. The tab strip sits above the editor only. When it's closed, the editor column takes the full width. The title bar's panel button and `Ctrl+B` toggle it.
+
+`Sidebar` keeps a `FileTree` model and rebuilds Kit `TreeItem`s from it on every change (`refresh`), restoring the selection by row id. That's because Kit's `Tree` only treats an item as a folder when it already has children, and it has no API for loading children later.
+
+- **Lazy loading:** only the root is read when a folder opens. Expanding a folder (`TreeEvent::Expanded`) reads it on the background executor. Until it loads, it shows a disabled "Loading…" child. A loaded empty folder shows "Empty".
+- **Rows:** row ids are the path strings. `FileTree::row(id)` maps an id back to `RowKind::File`, `Folder`, or `Placeholder`.
+- **Sorting and hiding:** folders come first, then files, both case-insensitive. Names starting with `.` and the folders `node_modules`, `target`, and `__pycache__` are hidden unless `show_hidden_files` is on. Filtering happens when items are built, so toggling is instant.
+- **Watching:** `DirWatcher` adds a non-recursive `notify` watch for each loaded folder. Events are batched for 150ms, then every loaded folder that was touched (the changed path or its parent) gets re-read. A folder that fails to read is forgotten along with its subfolders. If `notify` can't start, the sidebar works without auto-refresh.
+- **Opening files:** clicking a file row, or pressing Enter on it (`OpenSelected`, bound to `enter` in the `Tree` context), emits `SidebarEvent::OpenFile`, and the workspace calls `open_path`. Enter on a folder toggles it. The arrow keys come from Kit's tree.
+
 ## Tab colors
 
 `TabColor` is `Red`, `Yellow`, `Green`, `Teal`, `Blue`, `Purple`, or `Custom(hex)`. Presets resolve through the active theme's `red`, `yellow`, `green`, `cyan`, `blue`, and `magenta` colors, so they follow theme changes. Custom colors are stored as hex and stay fixed.
@@ -121,12 +141,12 @@ The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color su
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"manual"` (default) or `"language"` |
+| `settings.json` | `Settings` | `tab_color_mode`: `"manual"` (default) or `"language"`. `show_hidden_files`: `false` by default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
 
 Both use `#[serde(default)]`, so missing keys get defaults and unknown keys are ignored. A missing file loads as defaults. An unparseable file prints a warning and loads as defaults, and it gets overwritten the next time that file is saved.
 
-Writes go through `storage::write_atomic` (temporary file, then rename) and happen right away on the UI thread, in order. They're triggered by changing a tab color, changing the color mode, opening or saving a file, and Clear Recent.
+Writes go through `storage::write_atomic` (temporary file, then rename) and happen right away on the UI thread, in order. They're triggered by changing a tab color, the color mode, or the hidden-files toggle, by opening or saving a file, and by Clear Recent.
 
 ## Theme
 
@@ -147,16 +167,17 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 20 tests.
+Run `cargo test`. There are 26 tests.
 
-- Unit tests cover language detection, document reading and dirty tracking, untitled numbering, tab color serialization, and the storage round trip, defaults, and recent-file limits.
-- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, and reordering.
+- Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization, and the storage round trip, defaults, and recent-file limits.
+- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, and `Ctrl+B` opening the active file's folder. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
 
-- Session restore doesn't exist yet, so tabs aren't reopened at launch.
+- Session restore doesn't exist yet, so tabs and the sidebar folder aren't reopened at launch.
+- The sidebar's width resets each time it opens, and it can't create, rename, or delete files.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.
 - Kit's 36 extra theme JSON files aren't included in the crate. Only Slate Dark and Kit's Default Light/Dark are available.
-- Only tested on CachyOS with COSMIC (Wayland).
+- Only tested on CachyOS with COSMIC (Wayland). The sidebar hasn't been checked on screen yet.

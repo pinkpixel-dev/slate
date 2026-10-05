@@ -1,6 +1,8 @@
 mod assets;
 mod document;
+mod file_tree;
 mod language;
+mod sidebar;
 mod storage;
 mod tab_color;
 mod theme;
@@ -20,6 +22,7 @@ fn main() {
     application().with_assets(assets::AppAssets).run(move |cx| {
         init(cx);
         theme::init(cx);
+        sidebar::init(cx);
         workspace::init(cx);
 
         // Closing the last window ends the process, like any desktop editor.
@@ -43,8 +46,8 @@ fn main() {
             open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(Storage::from_env(), window, cx)))
                 .expect("failed to open the Slate window");
 
-        // `slate a.md b.rs` opens each file in a tab; a path that doesn't exist yet
-        // opens empty and is created on save.
+        // `slate a.md b.rs` opens each file in a tab, and a folder opens in the
+        // sidebar. A path that doesn't exist yet opens empty and is created on save.
         _ = window.update(cx, |_, window, cx| {
             workspace.update(cx, |workspace, cx| {
                 for path in file_args {

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0 - October 5, 2026
+
+### 📁 Sidebar
+
+- A file sidebar you can show and hide with `Ctrl+B` or the sidebar button in the title bar
+- Open Folder (`Ctrl+Shift+O`), or `slate ~/some/folder` from the terminal, opens a folder in the sidebar
+- With no folder open, showing the sidebar opens the active file's folder. If the file has never been saved, you get an Open Folder button instead
+- Folders load when you expand them, so big folders open instantly
+- The tree refreshes on its own when files are added, removed, or renamed
+- Dotfiles and folders like `.git`, `node_modules`, and `target` are hidden by default, with a toggle in the sidebar header. The choice is remembered
+- Click a file (or select it and press Enter) to open it in a tab. Arrow keys move through the tree
+- Drag the sidebar's edge to resize it
+
+### 🏷️ Versioning
+
+- Bumped to 0.4.0
+
 ## 0.3.0 - October 5, 2026
 
 ### 🗂️ Tabs

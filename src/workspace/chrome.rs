@@ -10,7 +10,7 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use super::{KEY_CONTEXT, NewFile, Open, Save, TAB_SIZE, ToggleWhitespace, Workspace};
+use super::{KEY_CONTEXT, NewFile, Open, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, Workspace};
 
 impl Workspace {
     pub(super) fn render_title_bar(&self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -36,6 +36,15 @@ impl Workspace {
                     .gap_1()
                     .items_center()
                     .min_w_0()
+                    .child(
+                        Button::new("toggle-sidebar")
+                            .ghost()
+                            .small()
+                            .icon(IconName::PanelLeft)
+                            .selected(self.sidebar_open)
+                            .tooltip_with_action("Toggle Sidebar", &ToggleSidebar, Some(KEY_CONTEXT))
+                            .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleSidebar), cx)),
+                    )
                     .child(
                         Button::new("new-file")
                             .ghost()

@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.3.0 - October 5, 2026
+
+### 🗂️ Tabs
+
+- Open as many files as you want, each in its own tab
+- `Ctrl+W` closes a tab, `Ctrl+Tab` / `Ctrl+Shift+Tab` (or `Ctrl+PageDown` / `Ctrl+PageUp`) switch between tabs
+- Middle-click a tab to close it, drag tabs to reorder them, and double-click the empty space after the tabs for a new file
+- Unsaved tabs show a dot that turns into a close button on hover
+- Right-click a tab for Close, Close Others, and Tab Color
+- New files are numbered (Untitled, Untitled 2, ...), and opening a file reuses an empty Untitled tab instead of stacking up blank ones
+- Opening a file that's already open switches to its tab
+
+### 🎨 Tab colors
+
+- Give any tab a colored line along its top edge: six presets that follow the theme's palette, or a custom color from a color picker
+- Colors are remembered per file, so a file keeps its color next time you open it
+- Optional "Color Tabs by Language" mode colors tabs automatically; a color you pick yourself still wins
+
+### 📂 Files
+
+- Open Recent menu next to the Open button (the last 10 files), with Clear Recent
+- The Open dialog can select several files at once
+- `slate a.md b.rs` opens each file in a tab, and a path that doesn't exist yet opens empty and gets created when you save
+- The title bar shows the active file's folder
+
+### 💾 Unsaved changes
+
+- Quitting with several unsaved tabs asks about each one in turn
+- Closing the last tab leaves a fresh Untitled tab instead of closing the window
+
+### ⚙️ Settings
+
+- Preferences are saved to `~/.config/slate/settings.json`, and recent files and tab colors to `~/.local/state/slate/state.json`
+
+### 🏷️ Versioning
+
+- Bumped to 0.3.0
+
 ## 0.2.0 - October 5, 2026
 
 ### 📂 Files

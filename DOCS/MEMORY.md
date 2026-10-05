@@ -53,3 +53,27 @@ What was decided: `Document` keeps `revision` (bumped on each editor `InputEvent
 Why: Saves run on a background thread. With a plain `dirty = false` after the write, anything typed while the write was in flight would be treated as saved, and closing the window wouldn't warn about it.
 
 Rejected: A boolean dirty flag (loses edits made mid-save), and comparing the full buffer against the saved text (O(file size) on every keystroke).
+
+### Decision: Draw Slate's own tab strip instead of using Kit's TabBar
+
+What was decided: `src/workspace/tab_strip.rs` renders tabs as plain GPUI divs, with GPUI's `on_drag`/`on_drop` for reordering and Kit's `ContextMenuExt`, `ColorSelect`, and `Tooltip` for the extras.
+
+Why: Kit's `TabBar` 0.7.1 has no reordering API, and its variants draw their own borders, which leaves no clean slot for a colored top line. The user wanted color-coded tabs specifically to tell tabs apart when many are open.
+
+Rejected: Kit's `TabBar` (no drag reorder, and fighting its styling for the accent line), and Kit's `Dock` tab panels (built for IDE-style docking layouts, far more than an editor's single tab row needs).
+
+### Decision: Keep preferences and remembered data in separate files
+
+What was decided: `Settings` goes to `$XDG_CONFIG_HOME/slate/settings.json` and `AppState` (recent files, per-file tab colors) to `$XDG_STATE_HOME/slate/state.json`, both written atomically and right away on the UI thread.
+
+Why: XDG keeps hand-editable preferences apart from data the app churns, and the phase 4 settings panel will only edit `settings.json`. The files are a few KB, so writing them in order on the spot avoids an older background write landing after a newer one.
+
+Rejected: One combined file (mixes user intent with history), and writes on background tasks (can finish out of order).
+
+### Decision: A hand-picked tab color beats "color by language"
+
+What was decided: `Workspace::tab_color` returns the buffer's own color first and only falls back to `TabColor::for_language` in `TabColorMode::Language`.
+
+Why: The user wants automatic coloring as a preference, but a color someone chose on purpose shouldn't vanish when the mode is on.
+
+Rejected: Language mode overriding manual colors, which would silently hide colors the user picked.

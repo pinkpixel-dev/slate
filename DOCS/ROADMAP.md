@@ -16,9 +16,12 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Folding and a whitespace toggle
 - Opening a file from the command line (`slate notes.md`), pulled forward from phase 2
 
-## Phase 2: Tabs and files
+## Phase 2: Tabs and files ✅
 
 - Multiple tabs, `Ctrl+Tab` cycling, closing and reordering tabs
+- Color-coded tabs: a thin colored line on top of a tab so tabs are easy to tell apart when lots are open. Pick from theme-matched presets or a custom color, per file
+- Tab color mode preference: manual colors, or automatic coloring by language
+- Settings and state files (`~/.config/slate/settings.json`, `~/.local/state/slate/state.json`)
 - Recent files
 - Open several files from the command line, and start a new file when the path doesn't exist yet
 
@@ -31,7 +34,8 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 
 - Theme picker, with Kit's built-in theme set bundled
 - A custom themes folder that hot-reloads
-- Font family and size settings
+- Font settings: UI font, monospace editor font (both picked from installed system fonts), and font size
+- A settings panel for all of Slate's preferences, including the tab color mode (which lives in the tab right-click menu for now)
 - Settings saved to `~/.config/slate/`
 
 ## Phase 5: Extras

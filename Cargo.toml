@@ -1,6 +1,6 @@
 [package]
 name = "slate"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "A fast, minimal text editor for Linux, built with GPUI Kit"
 license = "Apache-2.0"
@@ -33,6 +33,8 @@ gpui-kit = { version = "0.7.1", features = [
     "tree-sitter-yaml",
     "tree-sitter-zig",
 ] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]
 gpui-kit = { version = "0.7.1", features = ["test-support"] }

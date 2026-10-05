@@ -7,6 +7,8 @@ use crate::language::{self, Language};
 /// it has unsaved edits.
 pub struct Document {
     path: Option<PathBuf>,
+    /// Which "Untitled N" this is while it has no path.
+    untitled_number: usize,
     language: Language,
     /// Bumped on every edit.
     revision: u64,
@@ -15,9 +17,10 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn untitled() -> Self {
+    pub fn untitled(number: usize) -> Self {
         Self {
             path: None,
+            untitled_number: number,
             language: Language::PLAIN,
             revision: 0,
             saved_revision: 0,
@@ -28,6 +31,7 @@ impl Document {
         Self {
             language: language::detect(&path),
             path: Some(path),
+            untitled_number: 0,
             revision: 0,
             saved_revision: 0,
         }
@@ -46,7 +50,15 @@ impl Document {
             .as_deref()
             .and_then(|path| path.file_name())
             .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Untitled".into())
+            .unwrap_or_else(|| match self.untitled_number {
+                0 | 1 => "Untitled".into(),
+                n => format!("Untitled {n}"),
+            })
+    }
+
+    /// `Some(n)` for an "Untitled n" document that has never been saved.
+    pub fn untitled_number(&self) -> Option<usize> {
+        self.path.is_none().then_some(self.untitled_number)
     }
 
     /// Folder to start a Save As dialog in.
@@ -126,7 +138,7 @@ mod tests {
 
     #[test]
     fn edits_during_a_save_keep_the_document_dirty() {
-        let mut doc = Document::untitled();
+        let mut doc = Document::untitled(1);
         doc.mark_edited();
         let saving = doc.revision();
         doc.mark_edited();
@@ -136,5 +148,12 @@ mod tests {
 
         doc.mark_saved(PathBuf::from("/tmp/notes.md"), doc.revision());
         assert!(!doc.is_dirty());
+    }
+
+    #[test]
+    fn untitled_documents_are_numbered_after_the_first() {
+        assert_eq!(Document::untitled(1).display_name(), "Untitled");
+        assert_eq!(Document::untitled(3).display_name(), "Untitled 3");
+        assert_eq!(Document::from_path(PathBuf::from("/a/b.rs")).untitled_number(), None);
     }
 }

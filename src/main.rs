@@ -1,18 +1,21 @@
 mod assets;
 mod document;
 mod language;
+mod storage;
+mod tab_color;
 mod theme;
 mod workspace;
 
 use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
+use crate::storage::Storage;
 use crate::workspace::Workspace;
 
 const APP_ID: &str = "dev.pinkpixel.Slate";
 
 fn main() {
-    let file_arg = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+    let file_args: Vec<std::path::PathBuf> = std::env::args_os().skip(1).map(Into::into).collect();
 
     application().with_assets(assets::AppAssets).run(move |cx| {
         init(cx);
@@ -37,14 +40,18 @@ fn main() {
         };
 
         let (window, workspace) =
-            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(window, cx)))
+            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(Storage::from_env(), window, cx)))
                 .expect("failed to open the Slate window");
 
-        if let Some(path) = file_arg {
-            _ = window.update(cx, |_, window, cx| {
-                workspace.update(cx, |workspace, cx| workspace.load(path, window, cx));
+        // `slate a.md b.rs` opens each file in a tab; a path that doesn't exist yet
+        // opens empty and is created on save.
+        _ = window.update(cx, |_, window, cx| {
+            workspace.update(cx, |workspace, cx| {
+                for path in file_args {
+                    workspace.open_path(path, true, window, cx);
+                }
             });
-        }
+        });
         cx.activate(true);
     });
 }

@@ -6,11 +6,14 @@ I made it because I could never find an editor that hit the spot I wanted. Xed i
 
 It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whole UI on the GPU.
 
-> Slate is still early. It edits one file at a time right now, and tabs, a file sidebar, and theme options are next. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
+> Slate is still early. A file sidebar and theme and font options are next. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
 
 ## What works right now
 
-- Open and save files with your desktop's native file dialogs, or open one from the terminal with `slate notes.md`
+- Tabs: open as many files as you like, drag to reorder, middle-click to close
+- Color-coded tabs: right-click a tab and pick a color, and a thin line along its top makes it easy to find in a crowded row. Pick from presets that follow the theme, or any custom color. Colors are remembered per file, and there's an optional mode that colors tabs by language
+- Open and save files with your desktop's native file dialogs, or from the terminal with `slate notes.md todo.txt`
+- An Open Recent menu next to the Open button
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, find and replace, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - A dot by the file name when you have unsaved edits, and a Save / Don't Save / Cancel prompt before anything would throw them away
@@ -27,8 +30,14 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+O` | Open |
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
+| `Ctrl+W` | Close tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+F` | Find and replace |
 | `Ctrl+Q` | Quit |
+
+### Where Slate keeps things
+
+Your preferences live in `~/.config/slate/settings.json`. Recent files and tab colors live in `~/.local/state/slate/state.json`. Both are plain JSON, so you can edit or delete them. Slate falls back to defaults if either one is missing.
 
 ### Languages
 
@@ -56,7 +65,7 @@ cd slate
 cargo run --release
 ```
 
-To open a file straight away, pass it after `--`:
+To open files straight away, pass them after `--`. A path that doesn't exist yet opens as an empty file and gets created when you save:
 
 ```bash
 cargo run --release -- path/to/file.md

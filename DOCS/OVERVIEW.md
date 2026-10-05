@@ -159,4 +159,4 @@ Run `cargo test`. There are 20 tests.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.
 - Kit's 36 extra theme JSON files aren't included in the crate. Only Slate Dark and Kit's Default Light/Dark are available.
-- Only tested on CachyOS with COSMIC (Wayland). Drag-and-drop reordering is covered by a test of `move_buffer` but hasn't been checked by hand.
+- Only tested on CachyOS with COSMIC (Wayland).

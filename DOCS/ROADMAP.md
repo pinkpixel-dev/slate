@@ -8,18 +8,19 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Slate Dark theme
 - Repo, license, and docs
 
-## Phase 1: Core editing
+## Phase 1: Core editing ✅
 
 - Open, Save, and Save As with native file dialogs
-- Language detection from the file extension, with Tree-sitter highlighting for a chosen set of languages
+- Language detection from the file extension, with Tree-sitter highlighting for 23 languages
 - Unsaved-changes dot in the title, plus a prompt before closing with unsaved changes
 - Folding and a whitespace toggle
+- Opening a file from the command line (`slate notes.md`), pulled forward from phase 2
 
 ## Phase 2: Tabs and files
 
 - Multiple tabs, `Ctrl+Tab` cycling, closing and reordering tabs
 - Recent files
-- Open files from the command line (`slate notes.md`)
+- Open several files from the command line, and start a new file when the path doesn't exist yet
 
 ## Phase 3: Sidebar
 

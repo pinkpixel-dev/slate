@@ -37,3 +37,19 @@ What was decided: The main window uses `WindowDecorations::Client` on top of `Ti
 Why: GPUI defaults to `WindowDecorations::Server`. Under server decorations, Kit's `TitleBar` hides its own controls, and the desktop draws a second title bar above ours.
 
 Rejected: Server-side decorations, which give a doubled title bar and don't match the theme.
+
+### Decision: Refuse non-UTF-8 and binary files instead of loading them lossily
+
+What was decided: `document::read_text` returns an error for any file containing a NUL byte or invalid UTF-8, and the workspace shows it as an error notification. Nothing goes through `String::from_utf8_lossy`.
+
+Why: A lossy load swaps bad bytes for U+FFFD. If the user then pressed Save, the original bytes would be permanently replaced, which is a silent data-loss path in an editor whose whole job is not breaking files.
+
+Rejected: Lossy decoding (corrupts files on save), and encoding detection or conversion (not worth the complexity for a minimal editor right now; could come back as an explicit "Reopen with encoding" feature).
+
+### Decision: Track unsaved edits with a revision counter, not a boolean
+
+What was decided: `Document` keeps `revision` (bumped on each editor `InputEvent::Change`) and `saved_revision`. A save records the revision when it starts, and `mark_saved` stores that value, not the current one.
+
+Why: Saves run on a background thread. With a plain `dirty = false` after the write, anything typed while the write was in flight would be treated as saved, and closing the window wouldn't warn about it.
+
+Rejected: A boolean dirty flag (loses edits made mid-save), and comparing the full buffer against the saved text (O(file size) on every keystroke).

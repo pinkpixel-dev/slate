@@ -29,3 +29,19 @@ What did not work: `spectacle -b -n -a -o shot.png` (active-window capture) sile
 What worked instead: `cosmic-screenshot --interactive=false --modal=false --notify=false -s <dir>` saves a full-screen PNG to `<dir>` and prints its path.
 
 Note for next time: For visual checks on this machine, launch `target/debug/slate` in the background, wait about 4 seconds, then use `cosmic-screenshot`.
+
+### Note: The SQL grammar needs cc 1.2.x pinned in Cargo.lock
+
+What did not work: Enabling `tree-sitter-sql` on `gpui-kit` failed to resolve. `tree-sitter-sequel 0.3.8` requires `cc ~1.2.1`, but the lockfile already had `cc 1.6.0` (pulled in through `embed-resource` by `gpui-pre`).
+
+What worked instead: `cargo update -p cc --precise 1.2.67`. `embed-resource` only needs `cc ^1.2`, so the newest 1.2.x satisfies both.
+
+Note for next time: A blanket `cargo update` may try to move `cc` back to 1.6 and break the build again. Keep `cc` on 1.2.x until `tree-sitter-sequel` loosens its requirement.
+
+### Note: `use gpui_kit::*` breaks `#[test]` when test-support is on
+
+What did not work: A test module with `use gpui_kit::*;` and `#[gpui_kit::test]` failed with "recursion limit reached while expanding `#[test]`". With the `test-support` feature, the glob imports GPUI's own `test` macro, which shadows Rust's built-in `#[test]` that Kit's macro expands to.
+
+What worked instead: Import Kit items by name in test modules (`use gpui_kit::{AnyWindowHandle, TestAppContext, ...}`), with no glob.
+
+Note for next time: Never glob-import `gpui_kit` in a `#[cfg(test)]` module.

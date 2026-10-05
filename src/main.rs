@@ -1,3 +1,6 @@
+mod assets;
+mod document;
+mod language;
 mod theme;
 mod workspace;
 
@@ -9,7 +12,9 @@ use crate::workspace::Workspace;
 const APP_ID: &str = "dev.pinkpixel.Slate";
 
 fn main() {
-    application().with_assets(assets::Assets).run(|cx| {
+    let file_arg = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+
+    application().with_assets(assets::AppAssets).run(move |cx| {
         init(cx);
         theme::init(cx);
         workspace::init(cx);
@@ -31,8 +36,15 @@ fn main() {
             ..TitleBar::window_options()
         };
 
-        open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(window, cx)))
-            .expect("failed to open the Slate window");
+        let (window, workspace) =
+            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(window, cx)))
+                .expect("failed to open the Slate window");
+
+        if let Some(path) = file_arg {
+            _ = window.update(cx, |_, window, cx| {
+                workspace.update(cx, |workspace, cx| workspace.load(path, window, cx));
+            });
+        }
         cx.activate(true);
     });
 }

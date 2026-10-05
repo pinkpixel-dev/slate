@@ -31,7 +31,7 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Refreshes when files change on disk
 - Hidden files toggle, remembered in settings
 
-## Phase 4: Theming and settings
+## Phase 4: Theming and settings ✅
 
 - Theme picker, with Kit's built-in theme set bundled
 - A custom themes folder that hot-reloads

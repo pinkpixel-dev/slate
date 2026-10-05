@@ -5,7 +5,8 @@ use gpui_kit::*;
 
 use super::Workspace;
 use super::buffer::{Buffer, BufferId};
-use crate::storage::{self, TabColorMode};
+use super::files::notify_error;
+use crate::storage::{self, Settings, TabColorMode};
 use crate::tab_color::TabColor;
 
 impl Workspace {
@@ -36,6 +37,32 @@ impl Workspace {
     pub(super) fn set_tab_color_mode(&mut self, mode: TabColorMode, cx: &mut Context<Self>) {
         self.settings.tab_color_mode = mode;
         self.save_settings();
+        cx.notify();
+    }
+
+    /// Changes theme or font settings, saves them, and restyles every window.
+    pub(super) fn update_appearance(&mut self, cx: &mut Context<Self>, change: impl FnOnce(&mut Settings)) {
+        change(&mut self.settings);
+        self.save_settings();
+        crate::theme::apply(&self.settings, cx);
+        cx.notify();
+    }
+
+    /// Goes through the sidebar's own toggle, which saves the setting.
+    pub(super) fn set_show_hidden(&mut self, show: bool, cx: &mut Context<Self>) {
+        if self.settings.show_hidden_files != show {
+            self.sidebar.update(cx, |sidebar, cx| sidebar.toggle_hidden(cx));
+            cx.notify();
+        }
+    }
+
+    /// Something in the custom themes folder changed: reload it and reapply,
+    /// so edits to the active theme show up right away.
+    pub(super) fn on_themes_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        for error in crate::theme::reload_custom(cx) {
+            notify_error(error, window, cx);
+        }
+        crate::theme::apply(&self.settings, cx);
         cx.notify();
     }
 

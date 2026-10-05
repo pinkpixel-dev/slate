@@ -16,6 +16,13 @@ pub struct Settings {
     pub tab_color_mode: TabColorMode,
     /// Show dotfiles and folders like `node_modules` in the sidebar.
     pub show_hidden_files: bool,
+    /// Theme name; `None` means Slate Dark.
+    pub theme: Option<String>,
+    /// Font overrides; `None` keeps the theme's (or Kit's) default.
+    pub ui_font: Option<String>,
+    pub ui_font_size: Option<f32>,
+    pub editor_font: Option<String>,
+    pub editor_font_size: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,6 +93,11 @@ impl Storage {
 
     pub fn settings_path(&self) -> PathBuf {
         self.config_dir.join("settings.json")
+    }
+
+    /// Custom theme files, hot-reloaded while Slate runs.
+    pub fn themes_dir(&self) -> PathBuf {
+        self.config_dir.join("themes")
     }
 
     pub fn state_path(&self) -> PathBuf {
@@ -168,6 +180,19 @@ mod tests {
 
         write_atomic(&storage.settings_path(), r#"{"tab_color_mode": "language"}"#).unwrap();
         assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Language);
+    }
+
+    #[test]
+    fn appearance_settings_round_trip() {
+        let storage = Storage::in_dir(&temp_dir("appearance"));
+        let settings = Settings {
+            theme: Some("Gruvbox Dark".into()),
+            editor_font: Some("JetBrains Mono".into()),
+            editor_font_size: Some(15.0),
+            ..Settings::default()
+        };
+        write_atomic(&storage.settings_path(), &to_json(&settings)).unwrap();
+        assert_eq!(storage.load_settings(), settings);
     }
 
     #[test]

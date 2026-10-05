@@ -10,17 +10,18 @@ This document describes how the project works right now. It is present tense. De
 - [GPUI Kit](https://gpui-kit.com) `0.7.1`. It brings in GPUI (published as `gpui-pre` `0.3.8`, a pinned snapshot of Zed's GPUI), GPUI Base, GPUI Component, and the Lucide icon assets.
 - 22 `tree-sitter-*` Kit features are enabled in `Cargo.toml` for syntax highlighting. JSON highlighting is built into Kit and needs no feature.
 - `serde` and `serde_json` for the settings and state files.
-- `notify` 8.2 (the same version Kit uses for theme reloading) and `futures` for the sidebar's file watcher.
+- `notify` 8.2 (the same version Kit uses for theme reloading) and `futures` for the sidebar's file watcher and the custom themes watcher.
+- `fc-list` (fontconfig) at runtime, to find monospace fonts for the editor font picker. If it's missing, the picker lists every font.
 - `Cargo.lock` pins `cc` to `1.2.67`. See `ERRORS.md` for why.
 - Rendering goes through GPUI's Vulkan backend (wgpu) on Linux, under Wayland or X11. Native file dialogs go through the XDG desktop portal.
 - Tests: plain unit tests plus headless UI tests using Kit's `test-support` feature, which is enabled only under `[dev-dependencies]`.
 
 ## Core Flow
 
-1. `main` collects every command-line argument as a file path, then creates the GPUI application with `assets::AppAssets` and calls `gpui_kit::init`.
-2. `theme::init` loads the bundled `themes/slate.json` into the `ThemeRegistry`, applies **Slate Dark** with `apply_config`, and switches the theme mode to dark.
+1. `main` collects every command-line argument as a file path, builds `Storage::from_env()`, then creates the GPUI application with `assets::AppAssets` and calls `gpui_kit::init`.
+2. `theme::init(storage.themes_dir(), cx)` parses the bundled themes, creates and reads the custom themes folder, records Kit's starting fonts and radius as a baseline, and stores it all in the `ThemeCatalog` global. Nothing is applied yet.
 3. `sidebar::init` binds Enter in the tree, and `workspace::init` binds the shortcuts in the `Workspace` key context.
-4. A window opens with client-side decorations (`WindowDecorations::Client`) and app id `dev.pinkpixel.Slate`. `Workspace::new(Storage::from_env(), ...)` loads settings and state, then starts with one Untitled tab. `open_window` wraps it in Kit's `Root`, which owns the window border, dialogs, sheets, notifications, and tooltips.
+4. A window opens with client-side decorations (`WindowDecorations::Client`) and app id `dev.pinkpixel.Slate`. `Workspace::new(storage, ...)` loads settings and state, applies the theme and fonts with `theme::apply`, starts the custom themes watcher, then opens one Untitled tab. `open_window` wraps it in Kit's `Root`, which owns the window border, dialogs, sheets, notifications, and tooltips.
 5. Each command-line path goes through `open_path(path, missing_ok: true)`. A folder opens in the sidebar.
 6. When the last window closes, the app quits.
 
@@ -35,7 +36,9 @@ Invariants:
 |---|---|
 | `src/main.rs` | App startup, window options, command-line files, quit-on-last-window |
 | `src/assets.rs` | `AppAssets`: Kit's default icons plus Slate's extra Lucide icons (`FilePlus`, `Save`, `Pilcrow`) |
-| `src/theme.rs` | Loads and applies the bundled theme |
+| `src/theme/mod.rs` | `ThemeCatalog` (bundled and custom themes), `apply`, and `reload_custom` |
+| `src/theme/fonts.rs` | `FontLists`: installed fonts, and monospace fonts via `fc-list` |
+| `src/theme/watcher.rs` | `ThemeWatcher`: debounced `notify` watch on the custom themes folder |
 | `src/language.rs` | `Language { id, label }` and `detect(path)` |
 | `src/document.rs` | `Document` (path, language, untitled number, dirty tracking) plus `read_text` and `write_text` |
 | `src/tab_color.rs` | `TabColor` presets and custom colors, theme resolution, language colors |
@@ -49,12 +52,14 @@ Invariants:
 | `src/workspace/files.rs` | Open, Save, Save As, and `open_path` |
 | `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
-| `src/workspace/prefs.rs` | Tab color resolution and writing settings and state |
+| `src/workspace/prefs.rs` | Tab color resolution, appearance and hidden-file setters, theme reloads, and writing settings and state |
+| `src/workspace/settings_panel.rs` | The settings sheet and its searchable font pickers |
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
 | `src/workspace/tab_menu.rs` | Tab right-click menu and the custom color dialog |
-| `src/workspace/chrome.rs` | Title bar (with Open Recent) and status bar |
+| `src/workspace/chrome.rs` | Title bar (Open Recent, theme menu, Settings button) and status bar |
 | `src/workspace/tests.rs` | Headless UI tests |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
+| `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
 ## Workspace and buffers
 
@@ -81,6 +86,7 @@ All in the `Workspace` key context:
 | `ToggleWhitespace` | none (status bar button) | Applies to every open editor |
 | `ToggleSidebar` | `Ctrl+B` | Shows or hides the sidebar. Showing it with no folder open opens the active file's folder |
 | `OpenFolder` | `Ctrl+Shift+O` | Native folder picker, then `show_folder` |
+| `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
 ### Dirty tracking
 
@@ -141,14 +147,22 @@ The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color su
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"manual"` (default) or `"language"`. `show_hidden_files`: `false` by default |
+| `settings.json` | `Settings` | `tab_color_mode`: `"manual"` (default) or `"language"`. `show_hidden_files`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
 
 Both use `#[serde(default)]`, so missing keys get defaults and unknown keys are ignored. A missing file loads as defaults. An unparseable file prints a warning and loads as defaults, and it gets overwritten the next time that file is saved.
 
-Writes go through `storage::write_atomic` (temporary file, then rename) and happen right away on the UI thread, in order. They're triggered by changing a tab color, the color mode, or the hidden-files toggle, by opening or saving a file, and by Clear Recent.
+Writes go through `storage::write_atomic` (temporary file, then rename) and happen right away on the UI thread, in order. They're triggered by changing a tab color, the color mode, the hidden-files toggle, or anything in the settings panel, by opening or saving a file, and by Clear Recent.
 
 ## Theme
+
+`ThemeCatalog` holds two lists: the bundled themes (Slate Dark plus Kit's 36) and the custom themes from `$XDG_CONFIG_HOME/slate/themes`. `find(name)` checks custom first, so a custom theme with a bundled theme's name replaces it. `names()` returns every name once, sorted. Kit's own `ThemeRegistry` isn't used (see `MEMORY.md`).
+
+`theme::apply(&settings, cx)` runs inside one `Theme::update`: reset fonts, sizes, radius, and shadow to the baseline, `apply_config` the chosen theme (falling back to Slate Dark for an unknown name), then apply any font overrides from settings. `apply_config` also sets the light or dark mode. The editor uses `mono_font_family` and `mono_font_size`.
+
+`ThemeWatcher` watches the custom folder (not recursively) and waits 150 ms for a save to settle. Then `Workspace::on_themes_changed` reloads the custom list, shows an error notification for each file that didn't parse, and reapplies the current settings, so edits to the active theme show up right away.
+
+The settings sheet is Kit's `Settings` component inside a right-side `Sheet` (680px). Its fields read and write the workspace's `Settings` through a `WeakEntity`. The font pickers are searchable Kit `Select`s, built the first time the sheet opens because listing fonts runs `fc-list`. The editor picker only lists families fontconfig reports with spacing 90 or higher, filtered to names GPUI can load.
 
 `themes/slate.json` uses Kit's theme format: a `ThemeSet` with one `ThemeConfig` named `Slate Dark`. UI colors live under `colors`, and editor and syntax colors under `highlight`.
 
@@ -167,10 +181,10 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 26 tests.
+Run `cargo test`. There are 32 tests.
 
-- Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization, and the storage round trip, defaults, and recent-file limits.
-- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, and `Ctrl+B` opening the active file's folder. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
+- Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
+- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, and `Ctrl+,` opening the settings sheet. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
@@ -179,5 +193,6 @@ Run `cargo test`. There are 26 tests.
 - The sidebar's width resets each time it opens, and it can't create, rename, or delete files.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.
-- Kit's 36 extra theme JSON files aren't included in the crate. Only Slate Dark and Kit's Default Light/Dark are available.
+- Typing a font size goes through Kit's number field, which applies each keystroke clamped to 8 to 32. Typing `14` briefly applies 8 first. The + and - buttons don't have that problem.
+- The theme list doesn't mark which themes are custom.
 - Only tested on CachyOS with COSMIC (Wayland). The sidebar hasn't been checked on screen yet.

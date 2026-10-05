@@ -19,9 +19,11 @@ const APP_ID: &str = "dev.pinkpixel.Slate";
 fn main() {
     let file_args: Vec<std::path::PathBuf> = std::env::args_os().skip(1).map(Into::into).collect();
 
+    let storage = Storage::from_env();
+
     application().with_assets(assets::AppAssets).run(move |cx| {
         init(cx);
-        theme::init(cx);
+        theme::init(storage.themes_dir(), cx);
         sidebar::init(cx);
         workspace::init(cx);
 
@@ -43,7 +45,7 @@ fn main() {
         };
 
         let (window, workspace) =
-            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(Storage::from_env(), window, cx)))
+            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(storage, window, cx)))
                 .expect("failed to open the Slate window");
 
         // `slate a.md b.rs` opens each file in a tab, and a folder opens in the

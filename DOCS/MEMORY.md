@@ -93,3 +93,12 @@ What was decided: Slate starts with the sidebar hidden and no folder. Bringing b
 Why: Slate is for quick edits. `slate notes.txt` shouldn't come up with last week's project in the sidebar. The user agreed on 2026-10-05.
 
 Rejected: Always reopening the last folder (noise for quick edits), and defaulting to the home folder (a big, unhelpful tree). With no folder open, `Ctrl+B` opens the active file's folder instead.
+
+### Decision: Keep Slate's own theme catalog instead of Kit's ThemeRegistry
+
+What was decided: `src/theme/mod.rs` keeps a `ThemeCatalog` global with the bundled themes (embedded with `include_str!`) and the custom themes from `~/.config/slate/themes`, plus its own `ThemeWatcher`. Themes are applied with `Theme::update` and `apply_config`. Kit's `ThemeRegistry` isn't used.
+
+Why: Kit 0.7.1's `ThemeRegistry::reload` clears its theme map and rebuilds it from Kit's two default themes plus the files in the watched folder. Any theme added with `load_themes_from_str`, which is all 37 bundled ones, would disappear on the first hot reload. `load_themes_from_str` also skips names that already exist, so an edited custom theme wouldn't update. On top of that, `watch_dir`'s callback only runs after the first load.
+
+Rejected: `ThemeRegistry::watch_dir` (drops bundled themes on reload), and copying the bundled themes into the user's folder on first run (clutters the folder and leaves stale copies after updates).
+

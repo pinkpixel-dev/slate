@@ -10,7 +10,10 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use super::{KEY_CONTEXT, NewFile, Open, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, Workspace};
+use super::{
+    KEY_CONTEXT, NewFile, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, Workspace,
+};
+use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
 
 impl Workspace {
     pub(super) fn render_title_bar(&self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -69,6 +72,15 @@ impl Workspace {
                             .icon(Icon::new(CatalogIcon::Save))
                             .tooltip_with_action("Save", &Save, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(Save), cx)),
+                    )
+                    .child(self.render_theme_button(cx))
+                    .child(
+                        Button::new("settings")
+                            .ghost()
+                            .small()
+                            .icon(IconName::Settings)
+                            .tooltip_with_action("Settings", &OpenSettings, Some(KEY_CONTEXT))
+                            .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenSettings), cx)),
                     )
                     .when_some(folder, |this, folder| {
                         this.child(
@@ -132,6 +144,36 @@ impl Workspace {
             })
     }
 
+    /// A quick theme switcher; the full list also lives in Settings.
+    fn render_theme_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let this = cx.entity().downgrade();
+        let active = self.settings.theme.clone().unwrap_or_else(|| DEFAULT_THEME_NAME.into());
+        let themes = ThemeCatalog::global(cx).names();
+
+        Button::new("theme")
+            .ghost()
+            .small()
+            .icon(IconName::Palette)
+            .tooltip("Theme")
+            .dropdown_menu(move |mut menu, _, _| {
+                for name in &themes {
+                    let pick = this.clone();
+                    let theme = name.to_string();
+                    menu = menu.item(
+                        PopupMenuItem::new(name.clone())
+                            .checked(*name == active)
+                            .on_click(move |_, _, cx| {
+                                let theme = theme.clone();
+                                _ = pick.update(cx, |workspace, cx| {
+                                    workspace.update_appearance(cx, |settings| settings.theme = Some(theme));
+                                });
+                            }),
+                    );
+                }
+                menu.scrollable(true)
+            })
+    }
+
     pub(super) fn render_status_bar(&self, cx: &App) -> impl IntoElement {
         let buffer = self.active_buffer();
         let position = buffer.editor.read(cx).cursor_position();
@@ -156,7 +198,7 @@ impl Workspace {
 }
 
 /// A folder path for display, with the home directory shortened to `~`.
-fn display_dir(dir: &Path) -> String {
+pub(super) fn display_dir(dir: &Path) -> String {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     match home.as_deref().and_then(|home| dir.strip_prefix(home).ok()) {
         Some(rest) if rest.as_os_str().is_empty() => "~".into(),

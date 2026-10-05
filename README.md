@@ -6,7 +6,7 @@ I made it because I could never find an editor that hit the spot I wanted. Xed i
 
 It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whole UI on the GPU.
 
-> Slate is still early. Theme and font options are next. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
+> Slate is still early. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
 
 ## What works right now
 
@@ -19,7 +19,8 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - Line numbers, code folding, undo and redo, find and replace, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - A dot by the file name when you have unsaved edits, and a Save / Don't Save / Cancel prompt before anything would throw them away
 - A Show Whitespace toggle in the status bar, next to the cursor position and language
-- The Slate Dark theme: charcoal surfaces with a muted cyan-blue accent
+- 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
+- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
 
@@ -33,6 +34,7 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+Shift+O` | Open folder |
 | `Ctrl+B` | Show or hide the sidebar |
+| `Ctrl+,` | Settings |
 | `Ctrl+W` | Close tab |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+F` | Find and replace |
@@ -40,7 +42,13 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 
 ### Where Slate keeps things
 
-Your preferences live in `~/.config/slate/settings.json`. Recent files and tab colors live in `~/.local/state/slate/state.json`. Both are plain JSON, so you can edit or delete them. Slate falls back to defaults if either one is missing.
+Your preferences live in `~/.config/slate/settings.json`, and custom themes go in `~/.config/slate/themes/`. Recent files and tab colors live in `~/.local/state/slate/state.json`. Both are plain JSON, so you can edit or delete them. Slate falls back to defaults if either one is missing.
+
+### Custom themes
+
+Slate uses GPUI Kit's theme format. The easiest way to start is to copy one of the files from [`themes/`](themes) into `~/.config/slate/themes/`, rename the theme inside it, and edit the colors. The Open Folder button in Settings takes you straight there.
+
+Slate watches that folder, so your changes show up as soon as you save the file. If you give your theme the same name as a built-in one, yours replaces it. If a file has a JSON mistake, you'll get an error notification telling you which file.
 
 ### Languages
 
@@ -79,5 +87,7 @@ The first build compiles a lot of dependencies, so it takes a few minutes. After
 ## License
 
 Apache 2.0. See [`LICENSE`](LICENSE).
+
+The themes in `themes/kit/` come from [GPUI Kit](https://github.com/longbridge/gpui-kit) v0.7.1, which is also Apache 2.0.
 
 Made with 💖 by [Pink Pixel](https://pinkpixel.dev)

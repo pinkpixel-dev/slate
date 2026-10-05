@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0 - October 5, 2026
+
+### 🎨 Themes
+
+- 37 themes to pick from: Slate Dark plus the 36 themes from GPUI Kit (Catppuccin, Gruvbox, Tokyo Night, Solarized, Ayu, Everforest, and more), all built into the app
+- A palette button in the title bar for switching themes quickly
+- Drop your own theme files into `~/.config/slate/themes/` and they show up in the list. Slate reloads them as soon as you save, so you can tweak a theme and watch it change
+- A custom theme with the same name as a built-in one replaces it
+- A theme file with a mistake in it shows an error notification instead of failing silently
+
+### ⚙️ Settings
+
+- A settings panel (`Ctrl+,` or the gear button in the title bar) with Appearance and General pages
+- Pick the interface font and the editor font from your installed fonts, with search. The editor font list only shows monospace fonts
+- Set the interface and editor font sizes
+- Tab color mode and the hidden-files toggle are in the panel too
+- Every setting has a reset button that puts it back to the default
+
+### 🏷️ Versioning
+
+- Bumped to 0.5.0
+
 ## 0.4.0 - October 5, 2026
 
 ### 📁 Sidebar

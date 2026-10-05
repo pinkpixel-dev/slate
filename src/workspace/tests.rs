@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use gpui_kit::component::WindowExt as _;
+use gpui_kit::component::{Theme, WindowExt as _};
 use gpui_kit::test::TestWindowExt as _;
 use gpui_kit::{
     AnyWindowHandle, AppContext as _, Bounds, Entity, TestAppContext, WindowBounds, WindowOptions,
@@ -23,7 +23,7 @@ fn open_workspace(cx: &mut TestAppContext, dir: &Path) -> (AnyWindowHandle, Enti
     let storage = Storage::in_dir(dir);
     cx.update(|cx| {
         gpui_kit::init(cx);
-        crate::theme::init(cx);
+        crate::theme::init(storage.themes_dir(), cx);
         super::init(cx);
 
         let bounds = Bounds::new(point(px(0.), px(0.)), size(px(900.), px(600.)));
@@ -279,4 +279,54 @@ fn ctrl_b_opens_the_active_files_folder(cx: &mut TestAppContext) {
 
     press(cx, handle, "ctrl-b");
     cx.update(|cx| assert!(!workspace.read(cx).sidebar_open));
+}
+
+fn theme_name(cx: &mut TestAppContext) -> String {
+    cx.update(|cx| Theme::global(cx).theme_name().to_string())
+}
+
+#[gpui_kit::test]
+fn theme_and_font_settings_apply_and_persist(cx: &mut TestAppContext) {
+    let dir = test_dir("appearance");
+    let (_, workspace) = open_workspace(cx, &dir);
+    assert_eq!(theme_name(cx), "Slate Dark");
+
+    cx.update(|cx| {
+        workspace.update(cx, |workspace, cx| {
+            workspace.update_appearance(cx, |settings| {
+                settings.theme = Some("Gruvbox Light".into());
+                settings.editor_font_size = Some(17.0);
+            });
+        })
+    });
+    assert_eq!(theme_name(cx), "Gruvbox Light");
+    cx.update(|cx| {
+        let theme = Theme::global(cx);
+        assert!(!theme.is_dark());
+        assert_eq!(theme.mono_font_size, px(17.));
+    });
+
+    // A fresh window reads the saved settings and lands on the same theme.
+    let settings = Storage::in_dir(&dir).load_settings();
+    assert_eq!(settings.theme.as_deref(), Some("Gruvbox Light"));
+    cx.update(|cx| {
+        workspace.update(cx, |workspace, cx| workspace.update_appearance(cx, |settings| settings.theme = None))
+    });
+    assert_eq!(theme_name(cx), "Slate Dark");
+    let (_, _) = open_workspace(cx, &dir);
+    assert_eq!(theme_name(cx), "Slate Dark");
+}
+
+#[gpui_kit::test]
+fn ctrl_comma_opens_settings_and_escape_closes_them(cx: &mut TestAppContext) {
+    let (handle, _) = open_workspace(cx, &test_dir("settings-sheet"));
+    let has_sheet = |cx: &mut TestAppContext| {
+        cx.update_window(handle, |_, window, cx| window.has_active_sheet(cx))
+            .unwrap()
+    };
+
+    press(cx, handle, "ctrl-,");
+    assert!(has_sheet(cx));
+    press(cx, handle, "escape");
+    assert!(!has_sheet(cx));
 }

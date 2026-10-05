@@ -3,6 +3,7 @@ mod chrome;
 mod files;
 mod folders;
 mod prefs;
+mod settings_panel;
 mod tab_menu;
 mod tab_strip;
 mod unsaved;
@@ -18,7 +19,9 @@ use gpui_kit::*;
 use crate::document::Document;
 use crate::sidebar::Sidebar;
 use crate::storage::{AppState, Settings, Storage};
+use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
+use settings_panel::FontPickers;
 
 actions!(
     slate,
@@ -34,6 +37,7 @@ actions!(
         ToggleWhitespace,
         ToggleSidebar,
         OpenFolder,
+        OpenSettings,
     ]
 );
 
@@ -54,6 +58,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-q", Quit, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-b", ToggleSidebar, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-shift-o", OpenFolder, Some(KEY_CONTEXT)),
+        KeyBinding::new("ctrl-,", OpenSettings, Some(KEY_CONTEXT)),
     ]);
 }
 
@@ -77,6 +82,8 @@ pub struct Workspace {
     tab_scroll: ScrollHandle,
     sidebar: Entity<Sidebar>,
     sidebar_open: bool,
+    font_pickers: Option<FontPickers>,
+    _theme_watcher: Option<ThemeWatcher>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -90,6 +97,11 @@ impl Workspace {
         });
 
         let settings = storage.load_settings();
+        crate::theme::apply(&settings, cx);
+        let themes_dir = ThemeCatalog::global(cx).custom_dir().to_path_buf();
+        let theme_watcher = ThemeWatcher::new(&themes_dir, window, cx, Self::on_themes_changed)
+            .inspect_err(|err| eprintln!("slate: theme hot reload is off: {err}"))
+            .ok();
         let sidebar = cx.new(|cx| Sidebar::new(settings.show_hidden_files, cx));
         let subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
 
@@ -105,6 +117,8 @@ impl Workspace {
             tab_scroll: ScrollHandle::new(),
             sidebar,
             sidebar_open: false,
+            font_pickers: None,
+            _theme_watcher: theme_watcher,
             _subscriptions: subscriptions,
         };
         workspace.new_untitled(window, cx);
@@ -265,6 +279,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::toggle_whitespace))
             .on_action(cx.listener(Self::toggle_sidebar))
             .on_action(cx.listener(Self::open_folder))
+            .on_action(cx.listener(Self::open_settings))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

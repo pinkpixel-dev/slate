@@ -1,0 +1,12 @@
+[package]
+name = "slate"
+version = "0.1.0"
+edition = "2024"
+description = "A fast, minimal text editor for Linux, built with GPUI Kit"
+license = "Apache-2.0"
+authors = ["Pink Pixel <admin@pinkpixel.dev>"]
+repository = "https://github.com/pinkpixel-dev/slate"
+publish = false
+
+[dependencies]
+gpui-kit = "0.7.1"

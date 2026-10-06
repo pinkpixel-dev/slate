@@ -1,14 +1,8 @@
 # Slate
 
-Slate is a small, fast text editor for Linux. It's meant for the moments when you want to open a file, fix something, and move on, without starting up a whole IDE.
+	A fast, minimal text editor for Linux, built with GPUI Kit
 
-I made it because I could never find an editor that hit the spot I wanted. Xed is pleasant but pretty plain, and Kate has more features and plugins than I need. Slate sits in between, closer to the simple side, with better theming and a cleaner look.
-
-It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whole UI on the GPU.
-
-> Slate is still early. See [`DOCS/ROADMAP.md`](DOCS/ROADMAP.md) for what's planned.
-
-## What works right now
+## Features
 
 - Tabs: open as many files as you like, drag to reorder, middle-click to close
 - Color-coded tabs: a thin colored line along the top of each tab makes it easy to find in a crowded row. By default, tabs cycle through the current theme's syntax colors, so they change with the theme. You can switch to coloring by language, or turn it off, in Settings. Right-click a tab to give it its own color (a preset or any custom color), which is remembered per file
@@ -64,7 +58,7 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Alt+Z` | Word wrap |
 | `Ctrl+Q` | Quit |
 
-### Where Slate keeps things
+### Preferences
 
 Your preferences live in `~/.config/slate/settings.json`, and custom themes go in `~/.config/slate/themes/`. Recent files and tab colors live in `~/.local/state/slate/state.json`, and your last session (including the text of unsaved tabs) lives in `~/.local/state/slate/session.json`. They're all plain JSON, so you can edit or delete them. Slate falls back to defaults if one is missing.
 
@@ -83,10 +77,14 @@ Bash/Shell, C, C++, CSS, Diff, Go, HTML, Java, JavaScript, JSON, Lua, Makefile, 
 On Arch and Arch-based distros (CachyOS, EndeavourOS, Manjaro), Slate is on the AUR as `slate-editor`. The name `slate` was already taken by a pixel art editor, and both install a `slate` command, so pacman won't let you have the two at once.
 
 ```bash
-paru -S slate-editor
+yay -S slate-editor
 ```
 
-(`yay -S slate-editor` works the same way.) It builds from source, so the first install takes a few minutes. You get the `slate` command plus a desktop entry, so Slate shows up in your app launcher.
+OR 
+
+```bash
+paru -S slate-editor
+```
 
 On anything else, build it yourself with the steps below.
 

@@ -102,3 +102,11 @@ Why: Kit 0.7.1's `ThemeRegistry::reload` clears its theme map and rebuilds it fr
 
 Rejected: `ThemeRegistry::watch_dir` (drops bundled themes on reload), and copying the bundled themes into the user's folder on first run (clutters the folder and leaves stale copies after updates).
 
+
+### Decision: Draw Slate's own find bar on top of Kit's search engine
+
+What was decided: `src/workspace/find_bar.rs` renders the find and replace bar as Slate UI between the tab strip and the editor. Editors are built with `searchable(false)`, and the bar drives Kit's headless search API on `EditorState`.
+
+Why: The user wanted the find bar to match the rest of Slate's chrome (agreed 2026-10-05). Kit still does the matching, highlights, and replacing, so the custom part is only layout and key handling.
+
+Rejected: Kit's built-in search panel. It works fine but floats over the editor in Kit's own styling. Writing a separate matcher was also rejected, because Kit's highlights only follow its own matcher.

@@ -50,6 +50,7 @@ Invariants:
 | `src/workspace/mod.rs` | `Workspace`: buffers, actions, tab bookkeeping, and render |
 | `src/workspace/buffer.rs` | `Buffer` (one tab) and `BufferId` |
 | `src/workspace/files.rs` | Open, Save, Save As, and `open_path` |
+| `src/workspace/find_bar.rs` | The find and replace bar, and the search actions |
 | `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
 | `src/workspace/prefs.rs` | Tab color resolution, appearance and hidden-file setters, theme reloads, and writing settings and state |
@@ -57,7 +58,8 @@ Invariants:
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
 | `src/workspace/tab_menu.rs` | Tab right-click menu and the custom color dialog |
 | `src/workspace/chrome.rs` | Title bar (Open Recent, theme menu, Settings button) and status bar |
-| `src/workspace/tests.rs` | Headless UI tests |
+| `src/workspace/tests.rs` | Headless UI tests and the shared test helpers |
+| `src/workspace/find_tests.rs` | Headless tests for the find bar |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
@@ -65,7 +67,7 @@ Invariants:
 
 `Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, and an optional hand-picked `TabColor`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
 
-Every editor gets line numbers, folding, soft wrap off, 4-space tabs, and the current whitespace setting. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
+Every editor gets line numbers, folding, soft wrap off, 4-space tabs, and the current whitespace setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
 
 New tabs go right after the active one. Untitled tabs take the lowest free number ("Untitled", "Untitled 2", ...). `Buffer::is_pristine` is true for an untitled, clean, empty tab, and opening a file reuses that tab instead of adding one.
 
@@ -86,6 +88,10 @@ All in the `Workspace` key context:
 | `ToggleWhitespace` | none (status bar button) | Applies to every open editor |
 | `ToggleSidebar` | `Ctrl+B` | Shows or hides the sidebar. Showing it with no folder open opens the active file's folder |
 | `OpenFolder` | `Ctrl+Shift+O` | Native folder picker, then `show_folder` |
+| `Search` (Kit's) | `Ctrl+F` | Opens the find bar |
+| `Replace` (Kit's) | `Ctrl+H` | Opens the find bar with the replace row |
+| `FindNext` | `F3` | Next match. Opens the find bar if it's closed |
+| `FindPrevious` | `Shift+F3` | Previous match. Opens the find bar if it's closed |
 | `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
 ### Dirty tracking
@@ -122,6 +128,21 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
+
+## Find bar
+
+Slate draws its own find and replace bar (`find_bar.rs`) instead of using Kit's built-in panel, so it matches the tab strip and status bar. It sits between the tab strip and the editor. All the matching, highlighting, and replacing still happens in Kit's search engine on `EditorState` (`set_search_query`, `next_search_match`, `replace_current_search_match`, `replace_all_search_matches`, `close_search`).
+
+`Workspace` holds a `FindBar` with the open flag, replace mode, the match case toggle, the two Kit `InputState` fields, and `searched`: the `BufferId` whose editor currently has the highlights.
+
+- **Opening:** `Ctrl+F` or `Ctrl+H` shows the bar, fills the query with the editor's selection when it's a single line, and selects the query text.
+- **Searching:** every change to the query searches the active editor, then moves to the first match that ends at or after the selection start. Kit's matcher has no public way to set its current match, so `jump_to_anchor` steps through matches one at a time, going whichever way round is shorter. Past 512 steps it gives up and stays on the first match.
+- **Current match:** it's also selected in the editor, so closing the bar leaves the cursor on it.
+- **Keys in the bar:** Enter and Shift+Enter step through matches. Enter in the replace field replaces the current match. `Ctrl+Alt+Enter` replaces all. `Alt+C` toggles match case. Tab moves between the two fields. Escape closes the bar from the bar or from the editor; the workspace only takes Escape while the bar is open.
+- **Tabs:** switching tabs moves the search to the new tab and clears the old tab's highlights.
+- **Count:** the bar shows "3 of 12", or "No results" in the danger color.
+
+Match case only affects ASCII letters, because Kit builds its matcher with `ascii_case_insensitive`. There's no regex or whole-word mode.
 
 ## Sidebar
 
@@ -189,10 +210,11 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 36 tests.
+Run `cargo test`. There are 41 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
+- `workspace/find_tests.rs` covers stepping through matches, starting from the cursor and seeding from the selection, match case, replace and replace all, and the search following tab switches.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits

@@ -12,14 +12,14 @@ use crate::storage::{Storage, TabColorMode};
 use crate::tab_color::TabColor;
 
 /// A fresh folder for one test's settings, state, and files.
-fn test_dir(name: &str) -> PathBuf {
+pub(super) fn test_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("slate-ui-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
 
-fn open_workspace(cx: &mut TestAppContext, dir: &Path) -> (AnyWindowHandle, Entity<Workspace>) {
+pub(super) fn open_workspace(cx: &mut TestAppContext, dir: &Path) -> (AnyWindowHandle, Entity<Workspace>) {
     let storage = Storage::in_dir(dir);
     cx.update(|cx| {
         gpui_kit::init(cx);
@@ -39,7 +39,7 @@ fn open_workspace(cx: &mut TestAppContext, dir: &Path) -> (AnyWindowHandle, Enti
 }
 
 /// Types into the focused editor, then lets the change events settle.
-fn type_text(cx: &mut TestAppContext, handle: AnyWindowHandle, text: &str) {
+pub(super) fn type_text(cx: &mut TestAppContext, handle: AnyWindowHandle, text: &str) {
     cx.update_window(handle, |_, window, cx| {
         window.render_frame(cx);
         window.input(text, cx);
@@ -48,13 +48,13 @@ fn type_text(cx: &mut TestAppContext, handle: AnyWindowHandle, text: &str) {
     cx.run_until_parked();
 }
 
-fn press(cx: &mut TestAppContext, handle: AnyWindowHandle, keys: &str) {
+pub(super) fn press(cx: &mut TestAppContext, handle: AnyWindowHandle, keys: &str) {
     cx.update_window(handle, |_, window, cx| window.press(keys, cx))
         .unwrap();
     cx.run_until_parked();
 }
 
-fn click(cx: &mut TestAppContext, handle: AnyWindowHandle, id: &'static str) {
+pub(super) fn click(cx: &mut TestAppContext, handle: AnyWindowHandle, id: &'static str) {
     cx.update_window(handle, |_, window, cx| {
         window.render_frame(cx);
         window.click(id, cx);
@@ -83,7 +83,7 @@ fn tab_names(cx: &mut TestAppContext, workspace: &Entity<Workspace>) -> Vec<Stri
     })
 }
 
-fn open_file(cx: &mut TestAppContext, handle: AnyWindowHandle, workspace: &Entity<Workspace>, path: &Path) {
+pub(super) fn open_file(cx: &mut TestAppContext, handle: AnyWindowHandle, workspace: &Entity<Workspace>, path: &Path) {
     let path = path.to_path_buf();
     cx.update_window(handle, |_, window, cx| {
         workspace.update(cx, |workspace, cx| workspace.open_path(path, false, window, cx));

@@ -1,6 +1,7 @@
 mod buffer;
 mod chrome;
 mod files;
+mod find_bar;
 mod folders;
 mod prefs;
 mod settings_panel;
@@ -8,6 +9,8 @@ mod tab_menu;
 mod tab_strip;
 mod unsaved;
 
+#[cfg(test)]
+mod find_tests;
 #[cfg(test)]
 mod tests;
 
@@ -21,6 +24,7 @@ use crate::sidebar::Sidebar;
 use crate::storage::{AppState, Settings, Storage};
 use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
+use find_bar::FindBar;
 use settings_panel::FontPickers;
 
 actions!(
@@ -38,6 +42,8 @@ actions!(
         ToggleSidebar,
         OpenFolder,
         OpenSettings,
+        FindNext,
+        FindPrevious,
     ]
 );
 
@@ -60,6 +66,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-shift-o", OpenFolder, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-,", OpenSettings, Some(KEY_CONTEXT)),
     ]);
+    find_bar::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -83,6 +90,7 @@ pub struct Workspace {
     sidebar: Entity<Sidebar>,
     sidebar_open: bool,
     font_pickers: Option<FontPickers>,
+    find: FindBar,
     _theme_watcher: Option<ThemeWatcher>,
     _subscriptions: Vec<Subscription>,
 }
@@ -103,7 +111,9 @@ impl Workspace {
             .inspect_err(|err| eprintln!("slate: theme hot reload is off: {err}"))
             .ok();
         let sidebar = cx.new(|cx| Sidebar::new(settings.show_hidden_files, cx));
-        let subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
+        let mut subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
+        let (find, find_subscriptions) = FindBar::new(window, cx);
+        subscriptions.extend(find_subscriptions);
 
         let mut workspace = Self {
             focus_handle: cx.focus_handle(),
@@ -118,6 +128,7 @@ impl Workspace {
             sidebar,
             sidebar_open: false,
             font_pickers: None,
+            find,
             _theme_watcher: theme_watcher,
             _subscriptions: subscriptions,
         };
@@ -165,6 +176,7 @@ impl Workspace {
         buffer.editor.update(cx, |state, cx| state.focus(window, cx));
         self.tab_scroll.scroll_to_item(index);
         self.sync_window_title(window);
+        self.sync_find(window, cx);
         cx.notify();
     }
 
@@ -245,6 +257,7 @@ impl Workspace {
         v_flex()
             .size_full()
             .child(self.render_tab_strip(window, cx))
+            .children(self.render_find_bar(cx))
             .child(
                 div().flex_1().min_h_0().child(
                     Editor::new(&self.active_buffer().editor)
@@ -280,6 +293,11 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::toggle_sidebar))
             .on_action(cx.listener(Self::open_folder))
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::find))
+            .on_action(cx.listener(Self::find_replace))
+            .on_action(cx.listener(Self::find_next))
+            .on_action(cx.listener(Self::find_previous))
+            .on_action(cx.listener(Self::on_escape))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

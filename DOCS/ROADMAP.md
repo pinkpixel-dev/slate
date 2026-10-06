@@ -41,8 +41,9 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 
 ## Phase 5: Extras
 
+- Find with highlight and Find & Replace
 - Word wrap toggle
-- Session restore: reopen the last tabs and sidebar folder (optional)
+- Session restore: reopen the last tabs and sidebar folder
 - Markdown preview split
 - Minimap
 - Command palette (`Ctrl+Shift+P`)

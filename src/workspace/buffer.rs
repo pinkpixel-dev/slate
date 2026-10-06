@@ -35,6 +35,8 @@ impl Buffer {
                 .line_number(true)
                 .folding(true)
                 .soft_wrap(false)
+                // Slate draws its own find bar (`find_bar.rs`), so Ctrl+F goes up to the workspace.
+                .searchable(false)
                 .show_whitespaces(show_whitespace)
                 .tab_size(TabSize {
                     tab_size: TAB_SIZE,

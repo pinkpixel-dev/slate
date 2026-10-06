@@ -19,9 +19,9 @@ use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
 /// Title bar height; gpui-kit's default is 34px.
 const TITLE_BAR_HEIGHT: f32 = 42.;
 /// Title bar icon buttons. gpui-kit draws the icon at 75% of this.
-const TITLE_BUTTON_SIZE: f32 = 30.;
+const TITLE_BUTTON_SIZE: f32 = 24.;
 /// The small "Open Recent" chevron next to Open.
-const RECENT_BUTTON_SIZE: f32 = 24.;
+const RECENT_BUTTON_SIZE: f32 = 16.;
 
 impl Workspace {
     pub(super) fn render_title_bar(&self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

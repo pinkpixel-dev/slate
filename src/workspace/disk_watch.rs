@@ -153,6 +153,7 @@ impl Workspace {
                 } else {
                     buffer.document.set_disk_modified(modified);
                     reload_text(&editor, text, window, cx);
+                    self.sync_preview(id, cx);
                 }
             }
             Err(err) if err.kind() == io::ErrorKind::NotFound => {
@@ -198,6 +199,7 @@ impl Workspace {
                     buffer.disk_conflict = false;
                     let editor = buffer.editor.clone();
                     reload_text(&editor, text, window, cx);
+                    workspace.sync_preview(id, cx);
                     workspace.sync_window_title(window);
                     workspace.schedule_session_save(cx);
                     cx.notify();

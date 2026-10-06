@@ -5,6 +5,7 @@ use gpui_kit::component::{ActiveTheme as _, Icon, IconName, IndexPath, Sizable a
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use super::preview::TogglePreview;
 use super::{
     CloseTab, FindNext, FindPrevious, KEY_CONTEXT, NewFile, NextTab, Open, OpenFolder, OpenSettings, PreviousTab,
     Quit, Save, SaveAs, ToggleSidebar, ToggleWhitespace, ToggleWordWrap, Workspace,
@@ -82,6 +83,9 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
                 .keywords(&["files", "tree", "explorer"]),
             toggle("Toggle Word Wrap", || Box::new(ToggleWordWrap), |ws| ws.settings.word_wrap),
             toggle("Toggle Whitespace", || Box::new(ToggleWhitespace), |ws| ws.show_whitespace),
+            toggle("Toggle Markdown Preview", || Box::new(TogglePreview), |ws| {
+                ws.active_buffer().preview.is_some()
+            }),
             command("Next Tab", || Box::new(NextTab)),
             command("Previous Tab", || Box::new(PreviousTab)),
         ],

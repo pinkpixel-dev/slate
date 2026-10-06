@@ -1,4 +1,5 @@
 use gpui_kit::component::input::{EditorState, InputEvent, TabSize};
+use gpui_kit::component::text::TextViewState;
 use gpui_kit::*;
 
 use super::{TAB_SIZE, Workspace};
@@ -21,6 +22,8 @@ pub struct Buffer {
     /// Saves still writing. Disk checks wait for them, so our own writes
     /// don't look like outside changes.
     pub saves_in_flight: u32,
+    /// The rendered Markdown shown next to the editor, while it's open.
+    pub preview: Option<Entity<TextViewState>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -67,6 +70,7 @@ impl Buffer {
                 let was_dirty = buffer.document.is_dirty();
                 buffer.document.mark_edited();
                 this.schedule_session_save(cx);
+                this.sync_preview(id, cx);
                 if !was_dirty {
                     this.sync_window_title(window);
                     cx.notify();
@@ -81,6 +85,7 @@ impl Buffer {
             color: None,
             disk_conflict: false,
             saves_in_flight: 0,
+            preview: None,
             _subscriptions: subscriptions,
         }
     }

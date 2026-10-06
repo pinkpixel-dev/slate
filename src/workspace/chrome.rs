@@ -11,7 +11,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::{
-    KEY_CONTEXT, NewFile, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, ToggleWordWrap,
+    KEY_CONTEXT, NewFile, TogglePreview, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, ToggleWordWrap,
     Workspace,
 };
 use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
@@ -183,6 +183,17 @@ impl Workspace {
         StatusBar::new()
             .text_color(cx.theme().muted_foreground)
             .left(buffer.document.language().label)
+            .when(buffer.document.language().id == "markdown" || buffer.preview.is_some(), |bar| {
+                bar.right(
+                    Button::new("toggle-preview")
+                        .ghost()
+                        .xsmall()
+                        .icon(IconName::BookOpen)
+                        .selected(buffer.preview.is_some())
+                        .tooltip_with_action("Markdown Preview", &TogglePreview, Some(KEY_CONTEXT))
+                        .on_click(|_, window, cx| window.dispatch_action(Box::new(TogglePreview), cx)),
+                )
+            })
             .right(
                 Button::new("toggle-word-wrap")
                     .ghost()

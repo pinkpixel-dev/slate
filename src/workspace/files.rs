@@ -104,6 +104,8 @@ impl Workspace {
                 state.set_highlighter(language, cx);
                 state.set_value(text, window, cx);
             });
+            let id = self.active_buffer().id;
+            self.sync_preview(id, cx);
             self.activate(self.active, window, cx);
         } else {
             self.push_buffer(document, text, window, cx);

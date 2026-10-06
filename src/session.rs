@@ -32,6 +32,8 @@ pub struct SessionTab {
     pub color: Option<TabColor>,
     /// Cursor byte offset.
     pub cursor: usize,
+    /// The Markdown preview was open.
+    pub preview: bool,
 }
 
 impl SessionTab {

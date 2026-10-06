@@ -58,6 +58,7 @@ Invariants:
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
 | `src/workspace/prefs.rs` | Tab color resolution, appearance and hidden-file setters, theme reloads, and writing settings and state |
 | `src/workspace/session.rs` | Restoring, collecting, and writing the session, and the hot exit check |
+| `src/workspace/preview.rs` | The Markdown preview split |
 | `src/workspace/settings_panel.rs` | The settings sheet and its searchable font pickers |
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
 | `src/workspace/tab_menu.rs` | Tab right-click menu and the custom color dialog |
@@ -68,12 +69,13 @@ Invariants:
 | `src/workspace/session_tests.rs` | Headless tests for session restore |
 | `src/workspace/palette_tests.rs` | Headless tests for the command palette |
 | `src/workspace/disk_tests.rs` | Headless tests for disk changes |
+| `src/workspace/preview_tests.rs` | Headless tests for the Markdown preview |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
 ## Workspace and buffers
 
-`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, and a `saves_in_flight` count. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
+`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, a `saves_in_flight` count, and an optional Markdown `preview`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
 
 Every editor gets line numbers, folding, 4-space tabs, the current whitespace setting, and soft wrap from the `word_wrap` setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
 
@@ -102,6 +104,7 @@ All in the `Workspace` key context:
 | `FindNext` | `F3` | Next match. Opens the find bar if it's closed |
 | `FindPrevious` | `Shift+F3` | Previous match. Opens the find bar if it's closed |
 | `ToggleCommandPalette` | `Ctrl+Shift+P` | Opens the command palette |
+| `TogglePreview` | `Ctrl+Shift+V` (also a status bar button on Markdown tabs) | Shows or hides the active tab's Markdown preview |
 | `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
 ### Dirty tracking
@@ -140,6 +143,16 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
 
+## Markdown preview
+
+Each `Buffer` can hold a `preview: Option<Entity<TextViewState>>`. `Ctrl+Shift+V` (or the status bar button, or the palette) creates it from the tab's current text, or drops it. It's per tab, and it works on any tab, so a `README` with no extension can be previewed too. The status bar button only shows on Markdown tabs, or on a tab whose preview is already open.
+
+While it's open, `render_with_preview` puts the editor and Kit's `TextView` side by side in an `h_resizable` split. The preview scrolls on its own, and Kit opens links with the system browser.
+
+`sync_preview` sends the editor's text to the preview with `set_text`, and Kit parses it off the UI thread. It runs on every editor change, and also everywhere Slate swaps in text with `set_value`, since that doesn't emit a change event: opening a file into the empty tab, reloading a tab from disk, and session restore loading a clean file.
+
+The editor and preview don't scroll together, and relative image paths aren't resolved against the file's folder.
+
 ## Changes on disk
 
 `FileWatcher` (`disk_watch.rs`) keeps a non-recursive `notify` watch on the folder of every open file, not on the files themselves, because many tools save by writing a temp file and renaming it over the original. `sync_file_watches` recomputes the folder set whenever tabs change or a save finishes. Events settle for 150 ms, then `on_files_changed` re-reads every open file among the changed paths in the background.
@@ -169,7 +182,7 @@ To add a command, add an entry to `GROUPS`. Its action has to be handled on the 
 
 A window restores and saves the session only when Slate starts without arguments and `restore_session` is on. `Workspace::session_active` tracks that. A window opened with files (`slate notes.txt`) never reads or writes `session.json`, so whatever the last no-argument run stashed is kept for later, and quitting asks about unsaved tabs as usual.
 
-**What's saved.** `collect_session` keeps every file tab and every untitled tab with text. Untitled tabs always store their text. File tabs store it only when they have unsaved edits, along with the file's `disk_modified` from when those edits started. Each tab also keeps its hand-picked color, its untitled number, and its cursor offset. The active tab and the sidebar folder are saved too.
+**What's saved.** `collect_session` keeps every file tab and every untitled tab with text. Untitled tabs always store their text. File tabs store it only when they have unsaved edits, along with the file's `disk_modified` from when those edits started. Each tab also keeps its hand-picked color, its untitled number, its cursor offset, and whether its preview was open. The active tab and the sidebar folder are saved too.
 
 **When it's written.** `schedule_session_save` replaces a one-second timer on every edit, tab switch, tab open or close, save, and sidebar change, so typing doesn't write on each key. Closing the window writes it straight away. Writes use `write_atomic` on the UI thread, like the other state files.
 
@@ -271,7 +284,7 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 59 tests.
+Run `cargo test`. There are 62 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
@@ -280,6 +293,7 @@ Run `cargo test`. There are 59 tests.
 - `session.rs` unit tests cover the `session.json` round trip and the disk-change check. `workspace/session_tests.rs` covers a full quit and relaunch (untitled text, an edited file, a clean file, the active tab, and the sidebar folder), the one-second debounce, a launch with files leaving the stored session alone, and turning restore off.
 - `workspace/palette_tests.rs` covers running commands by typing and pressing Enter, opening the find bar from the palette, Escape closing it without running anything, and shortcut hints resolving while the palette has focus.
 - `workspace/disk_tests.rs` covers a clean tab reloading, Keep Mine and Reload on a tab with unsaved edits, Slate's own save not counting as an outside change, a deleted file staying open as unsaved, and session restore showing the bar for a file that changed.
+- `workspace/preview_tests.rs` covers the preview rendering and following typing, previews being per tab, and an open preview coming back with the session.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits

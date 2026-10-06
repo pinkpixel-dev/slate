@@ -86,6 +86,10 @@ impl Workspace {
             }
             (None, None) => return false,
         }
+        if tab.preview {
+            let id = self.buffers[self.active].id;
+            self.set_preview(id, true, cx);
+        }
         true
     }
 
@@ -105,6 +109,7 @@ impl Workspace {
                     let editor = buffer.editor.clone();
                     editor.update(cx, |state, cx| state.set_value(text, window, cx));
                     workspace.restore_cursor(id, cursor, cx);
+                    workspace.sync_preview(id, cx);
                 }
                 Err(err) => {
                     notify_error(format!("Couldn't reopen {}: {err}", path.display()), window, cx);
@@ -144,6 +149,7 @@ impl Workspace {
                 disk_modified: buffer.document.disk_modified(),
                 color: buffer.color.clone(),
                 cursor: editor.selected_range().start,
+                preview: buffer.preview.is_some(),
                 path,
             });
         }

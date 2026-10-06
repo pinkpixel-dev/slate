@@ -5,6 +5,7 @@ mod files;
 mod find_bar;
 mod folders;
 mod palette;
+mod preview;
 mod prefs;
 mod session;
 mod settings_panel;
@@ -24,6 +25,8 @@ mod session_tests;
 mod palette_tests;
 #[cfg(test)]
 mod disk_tests;
+#[cfg(test)]
+mod preview_tests;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
@@ -38,6 +41,7 @@ use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
 use disk_watch::FileWatcher;
 use find_bar::FindBar;
+use preview::TogglePreview;
 use settings_panel::FontPickers;
 
 actions!(
@@ -83,6 +87,7 @@ pub fn init(cx: &mut App) {
     ]);
     find_bar::init(cx);
     palette::init(cx);
+    preview::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -300,19 +305,17 @@ impl Workspace {
 impl Workspace {
     /// The tab strip and the active editor.
     fn render_editor_column(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let editor = Editor::new(&self.active_buffer().editor)
+            .h_full()
+            .bordered(false)
+            .aria_label("Editor")
+            .into_any_element();
         v_flex()
             .size_full()
             .child(self.render_tab_strip(window, cx))
             .children(self.render_disk_bar(cx))
             .children(self.render_find_bar(cx))
-            .child(
-                div().flex_1().min_h_0().child(
-                    Editor::new(&self.active_buffer().editor)
-                        .h_full()
-                        .bordered(false)
-                        .aria_label("Editor"),
-                ),
-            )
+            .child(div().flex_1().min_h_0().child(self.render_with_preview(editor, cx)))
             .into_any_element()
     }
 }
@@ -347,6 +350,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::find_previous))
             .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::toggle_command_palette))
+            .on_action(cx.listener(Self::toggle_preview))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

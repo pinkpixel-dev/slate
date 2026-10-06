@@ -3,6 +3,7 @@ mod chrome;
 mod files;
 mod find_bar;
 mod folders;
+mod palette;
 mod prefs;
 mod session;
 mod settings_panel;
@@ -18,8 +19,11 @@ mod tests;
 mod wrap_tests;
 #[cfg(test)]
 mod session_tests;
+#[cfg(test)]
+mod palette_tests;
 
 use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::command::CommandState;
 use gpui_kit::component::input::Editor;
 use gpui_kit::component::v_flex;
 use gpui_kit::*;
@@ -74,6 +78,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-,", OpenSettings, Some(KEY_CONTEXT)),
     ]);
     find_bar::init(cx);
+    palette::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -99,6 +104,7 @@ pub struct Workspace {
     sidebar_open: bool,
     font_pickers: Option<FontPickers>,
     find: FindBar,
+    palette: Entity<CommandState>,
     /// This window restores and saves the session: launched without
     /// arguments, with `restore_session` on.
     session_active: bool,
@@ -142,6 +148,7 @@ impl Workspace {
             sidebar_open: false,
             font_pickers: None,
             find,
+            palette: cx.new(|cx| CommandState::new(window, cx)),
             session_active: false,
             pending_session_save: None,
             _theme_watcher: theme_watcher,
@@ -323,6 +330,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::find_next))
             .on_action(cx.listener(Self::find_previous))
             .on_action(cx.listener(Self::on_escape))
+            .on_action(cx.listener(Self::toggle_command_palette))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

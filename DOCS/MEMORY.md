@@ -118,3 +118,11 @@ What was decided: With `restore_session` on (the default) and no command-line ar
 Why: The user forgets to save and wanted nothing lost between runs (agreed 2026-10-05). Writing while they work means a crash loses at most a second of typing. A launch with files never touches the stored session, so `slate notes.txt` stays a quick edit and can't overwrite stashed work.
 
 Rejected: Keeping the quit prompt with restore on (its Don't Save would really throw edits away, which defeats the point). Writing only on quit (a crash loses everything). Loading the disk version when a file changed under stashed edits (loses the edits; Slate restores them and warns instead).
+
+### Decision: Palette commands dispatch from the editor, not through Kit's item actions
+
+What was decided: `src/workspace/palette.rs` builds `CommandItem`s with no `.action()`. Its `on_confirm` closes the dialog, focuses the active editor, and dispatches the action from there. Rows draw their own key hints, looked up in the `Workspace` key context.
+
+Why: Kit's dialogs render under `Root` as a sibling of the workspace view. An action dispatched from inside the dialog walks up through the dialog and `Root` and never reaches the `Workspace` element's handlers. Kit's default hint lookup searches the same focus path, so it can't see Slate's `Workspace`-context bindings either.
+
+Rejected: `CommandItem::action` (runs nothing in Slate and shows no hints), and binding every Slate shortcut globally with no context (they would fire inside dialogs, the settings sheet, and the find fields too).

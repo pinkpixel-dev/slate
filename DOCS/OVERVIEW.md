@@ -52,6 +52,7 @@ Invariants:
 | `src/workspace/buffer.rs` | `Buffer` (one tab) and `BufferId` |
 | `src/workspace/files.rs` | Open, Save, Save As, and `open_path` |
 | `src/workspace/find_bar.rs` | The find and replace bar, and the search actions |
+| `src/workspace/palette.rs` | The command palette and its command list |
 | `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
 | `src/workspace/prefs.rs` | Tab color resolution, appearance and hidden-file setters, theme reloads, and writing settings and state |
@@ -64,6 +65,7 @@ Invariants:
 | `src/workspace/find_tests.rs` | Headless tests for the find bar |
 | `src/workspace/wrap_tests.rs` | Headless tests for word wrap |
 | `src/workspace/session_tests.rs` | Headless tests for session restore |
+| `src/workspace/palette_tests.rs` | Headless tests for the command palette |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
@@ -97,6 +99,7 @@ All in the `Workspace` key context:
 | `Replace` (Kit's) | `Ctrl+H` | Opens the find bar with the replace row |
 | `FindNext` | `F3` | Next match. Opens the find bar if it's closed |
 | `FindPrevious` | `Shift+F3` | Previous match. Opens the find bar if it's closed |
+| `ToggleCommandPalette` | `Ctrl+Shift+P` | Opens the command palette |
 | `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
 ### Dirty tracking
@@ -134,6 +137,16 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
+
+## Command palette
+
+`Ctrl+Shift+P` opens Kit's `Command` component inside a Kit dialog (520px wide, 72px from the top). `Workspace` keeps one `CommandState` and clears its query each time the palette opens.
+
+The commands live in the static `GROUPS` list in `palette.rs`: File, Find, View, and Preferences. Each entry has a label, optional search keywords, the action it runs, and, for toggles, a function that says whether it's on. Kit filters by a case-insensitive substring match on the label and keywords.
+
+Items don't use Kit's `CommandItem::action`. Dialogs are drawn by Kit's `Root`, next to the workspace instead of inside it, so an action dispatched from the palette would never reach the workspace's handlers. Instead, `on_confirm` maps the `IndexPath` back to `GROUPS`, closes the dialog, focuses the active editor, and dispatches the action from there. For the same reason, each row draws its own shortcut hint with `Kbd::binding_for_action(action, Some("Workspace"), window)`, and toggles that are on show a check.
+
+To add a command, add an entry to `GROUPS`. Its action has to be handled on the `Workspace` element or on the editor.
 
 ## Session restore
 
@@ -241,13 +254,14 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 49 tests.
+Run `cargo test`. There are 53 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - `workspace/find_tests.rs` covers stepping through matches, starting from the cursor and seeding from the selection, match case, replace and replace all, and the search following tab switches.
 - `workspace/wrap_tests.rs` checks wrapping by behavior, since Kit has no soft wrap getter: on a long wrapped line, Down stays on buffer line 0. It covers `Alt+Z`, new tabs picking up the setting, the saved setting, and the settings panel path.
 - `session.rs` unit tests cover the `session.json` round trip and the disk-change check. `workspace/session_tests.rs` covers a full quit and relaunch (untitled text, an edited file, a clean file, the active tab, and the sidebar folder), the one-second debounce, a launch with files leaving the stored session alone, and turning restore off.
+- `workspace/palette_tests.rs` covers running commands by typing and pressing Enter, opening the find bar from the palette, Escape closing it without running anything, and shortcut hints resolving while the palette has focus.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits

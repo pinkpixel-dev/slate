@@ -22,6 +22,7 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - A dot by the file name when you have unsaved edits. Closing an unsaved tab asks Save / Don't Save / Cancel, and so does quitting when session restore is off or you opened Slate with files
 - Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position and language
 - 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
+- A command palette (`Ctrl+Shift+P`) for running any command by name, with its shortcut shown next to it
 - A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, session restore, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
@@ -36,6 +37,7 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+Shift+O` | Open folder |
 | `Ctrl+B` | Show or hide the sidebar |
+| `Ctrl+Shift+P` | Command palette |
 | `Ctrl+,` | Settings |
 | `Ctrl+W` | Close tab |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |

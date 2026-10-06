@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.6.0 - October 5, 2026
+
+### 🔍 Find and Replace
+
+- A find bar (`Ctrl+F`) and a find-and-replace bar (`Ctrl+H`) that sit above the editor and match the rest of Slate
+- It starts at your cursor, selects each match as you step through them, and shows "3 of 12" or "No results"
+- `Enter` / `Shift+Enter` or `F3` / `Shift+F3` for next and previous, `Alt+C` for Match Case, `Ctrl+Alt+Enter` to replace everything
+- If you have one line selected, it becomes the search text
+
+### 💾 Session Restore
+
+- Start Slate without any files and it reopens your last tabs, the active tab, cursor positions, tab colors, and the sidebar folder
+- Unsaved work comes back too, including untitled tabs and files with edits you never saved
+- Quitting doesn't ask about unsaved tabs anymore while this is on, since they'll be right there next time. Closing a single unsaved tab still asks
+- The session is saved a second after you stop typing, so a crash loses very little
+- Opening Slate with files (`slate notes.txt`) leaves your saved session alone
+- On by default. You can turn it off in Settings, which brings the quit prompt back
+
+### 📂 Changes on Disk
+
+- Slate notices when an open file changes on disk. Tabs without edits just reload
+- If you have unsaved edits, a bar asks whether to reload the disk version or keep yours
+- A file that's deleted or moved away stays open, marked unsaved, so saving puts it back
+- Restoring a session uses the same bar when a file changed while your edits were stashed
+
+### 🧭 Command Palette
+
+- `Ctrl+Shift+P` opens a searchable list of Slate's commands, each showing its shortcut
+- Toggles like the sidebar, word wrap, whitespace, minimap, and Markdown preview show a check when they're on
+
+### 📝 Markdown Preview
+
+- `Ctrl+Shift+V` opens a live preview next to the editor in a resizable split. It updates as you type
+- Each tab has its own preview, and an open preview comes back with your session
+- Markdown tabs get a preview button in the status bar
+
+### 🗺️ Minimap
+
+- A minimap along the editor's right edge, with syntax colors from your theme
+- Drag the viewport box, click to jump, or scroll over it
+- Toggle it with `Ctrl+Shift+M`, the palette, or Settings. It's on by default and hides while word wrap is on
+
+### ✏️ Editing
+
+- Word wrap toggle (`Alt+Z`), also in the status bar and Settings. Slate remembers it
+
+### 🏷️ Versioning
+
+- Bumped to 0.6.0
+
 ## 0.5.0 - October 5, 2026
 
 ### 🎨 Themes

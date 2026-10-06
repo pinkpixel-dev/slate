@@ -39,7 +39,7 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - A settings panel for all of Slate's preferences, including the tab color mode (which lives in the tab right-click menu for now)
 - Settings saved to `~/.config/slate/`
 
-## Phase 5: Extras
+## Phase 5: Extras ✅
 
 - Find with highlight and Find & Replace
 - Word wrap toggle

@@ -109,7 +109,7 @@ impl Workspace {
                     let editor = buffer.editor.clone();
                     editor.update(cx, |state, cx| state.set_value(text, window, cx));
                     workspace.restore_cursor(id, cursor, cx);
-                    workspace.sync_preview(id, cx);
+                    workspace.text_changed(id, cx);
                 }
                 Err(err) => {
                     notify_error(format!("Couldn't reopen {}: {err}", path.display()), window, cx);

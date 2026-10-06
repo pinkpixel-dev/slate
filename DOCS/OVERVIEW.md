@@ -46,6 +46,7 @@ Invariants:
 | `src/sidebar/mod.rs` | `Sidebar` view: lazy loading, refresh, `SidebarEvent` |
 | `src/sidebar/view.rs` | Sidebar header, empty state, and tree rows |
 | `src/sidebar/watcher.rs` | `DirWatcher`: per-folder `notify` watches with debounced rescans |
+| `src/minimap.rs` | The minimap model: text to colored runs, and the scroll math |
 | `src/session.rs` | `Session` and `SessionTab`, the shape of `session.json` |
 | `src/storage.rs` | `Settings`, `AppState`, `Storage` paths, JSON loading, and atomic writes |
 | `src/workspace/mod.rs` | `Workspace`: buffers, actions, tab bookkeeping, and render |
@@ -53,6 +54,7 @@ Invariants:
 | `src/workspace/disk_watch.rs` | `FileWatcher`, checking open files against disk, and the "changed on disk" bar |
 | `src/workspace/files.rs` | Open, Save, Save As, and `open_path` |
 | `src/workspace/find_bar.rs` | The find and replace bar, and the search actions |
+| `src/workspace/minimap.rs` | Minimap state, background refresh, painting, and mouse handling |
 | `src/workspace/palette.rs` | The command palette and its command list |
 | `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
@@ -70,12 +72,13 @@ Invariants:
 | `src/workspace/palette_tests.rs` | Headless tests for the command palette |
 | `src/workspace/disk_tests.rs` | Headless tests for disk changes |
 | `src/workspace/preview_tests.rs` | Headless tests for the Markdown preview |
+| `src/workspace/minimap_tests.rs` | Headless tests for the minimap |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
 ## Workspace and buffers
 
-`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, a `saves_in_flight` count, and an optional Markdown `preview`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
+`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, a `saves_in_flight` count, an optional Markdown `preview`, and its `MinimapState`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
 
 Every editor gets line numbers, folding, 4-space tabs, the current whitespace setting, and soft wrap from the `word_wrap` setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
 
@@ -104,6 +107,7 @@ All in the `Workspace` key context:
 | `FindNext` | `F3` | Next match. Opens the find bar if it's closed |
 | `FindPrevious` | `Shift+F3` | Previous match. Opens the find bar if it's closed |
 | `ToggleCommandPalette` | `Ctrl+Shift+P` | Opens the command palette |
+| `ToggleMinimap` | `Ctrl+Shift+M` | Flips `show_minimap` and saves it |
 | `TogglePreview` | `Ctrl+Shift+V` (also a status bar button on Markdown tabs) | Shows or hides the active tab's Markdown preview |
 | `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
@@ -142,6 +146,20 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
+
+## Minimap
+
+The minimap is a 96px strip along the editor's right edge (`render_with_minimap`), drawn with a GPUI `canvas`. Kit's editor doesn't have one. It shows when `show_minimap` is on and word wrap is off. With wrap on, Kit doesn't expose how lines map to wrapped rows, so the viewport box would drift. `Ctrl+Shift+M`, the palette, and Settings toggle it.
+
+**Model (`src/minimap.rs`).** `build_lines` turns the text into a list of `Run`s per line: stretches of non-space characters in one color, 1px per column and 2px per line, with tabs rounded to 4-column stops and nothing past column 160. `Viewport { total, top, visible }` is the editor's position in rows, and `view` turns it into the minimap's own scroll plus the viewport box. A document taller than the pane scrolls the minimap in step with the editor, reaching the bottom together. `top_for_box` (dragging) and `top_centering` (clicking) go the other way.
+
+**Colors.** Each tab's `MinimapState` keeps its own Kit `SyntaxHighlighter`, because the editor's isn't public. `refresh_minimap` takes the text and the highlighter, parses on the background executor, builds the runs with the theme's `highlight_theme` colors (at 80% opacity, plain text at 55% of `foreground`), and puts the highlighter back. Files over 2 MB skip syntax colors.
+
+**When it rebuilds.** `text_changed` marks the tab stale and rebuilds 300ms after typing stops. `ensure_minimap` rebuilds right away if the active tab is stale, or was built for another language or theme. It runs on tab switches, theme changes, and turning the minimap or wrap back on. The theme is told apart by the address of `highlight_theme`, since Kit swaps in a new one on every theme change.
+
+**Mouse.** The canvas's prepaint stores its bounds in `minimap_bounds`. Pressing on the viewport box drags it. Pressing elsewhere centers that line, then drags from the middle of the box. Scrolling the wheel over the minimap scrolls the editor. All of it goes through `set_scroll_offset` with the editor's line height.
+
+Folded code still shows in full in the minimap, so the box sits a little lower than it should below a fold.
 
 ## Markdown preview
 
@@ -249,7 +267,7 @@ Theme mode colors by position, so dragging a tab to a new spot changes its color
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `word_wrap`: `false` by default. `restore_session`: `true` by default (`Settings` has a hand-written `Default` for this). `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
+| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `word_wrap`: `false` by default. `show_minimap`: `true` by default. `restore_session`: `true` by default (`Settings` has a hand-written `Default` for this). `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
 | `session.json` | `Session` | Open tabs, the active tab, the sidebar folder, and whether the sidebar was open. See Session restore |
 
@@ -284,7 +302,7 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 62 tests.
+Run `cargo test`. There are 70 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
@@ -294,11 +312,13 @@ Run `cargo test`. There are 62 tests.
 - `workspace/palette_tests.rs` covers running commands by typing and pressing Enter, opening the find bar from the palette, Escape closing it without running anything, and shortcut hints resolving while the palette has focus.
 - `workspace/disk_tests.rs` covers a clean tab reloading, Keep Mine and Reload on a tab with unsaved edits, Slate's own save not counting as an outside change, a deleted file staying open as unsaved, and session restore showing the bar for a file that changed.
 - `workspace/preview_tests.rs` covers the preview rendering and following typing, previews being per tab, and an open preview coming back with the session.
+- `minimap.rs` unit tests cover building runs (words, tabs, syntax colors) and the scroll math for short and long documents, dragging, and clicking. `workspace/minimap_tests.rs` covers every line getting drawn with syntax colors, a click scrolling the editor, and `Ctrl+Shift+M` and word wrap hiding it. Kit's test `click` only finds Kit components, so the click test calls `on_minimap_down` directly.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
 
 - Two Slate processes running with session restore will overwrite each other's `session.json`.
+- The minimap is hidden while word wrap is on, and doesn't account for folded code.
 - The sidebar's width resets each time it opens, and it can't create, rename, or delete files.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.

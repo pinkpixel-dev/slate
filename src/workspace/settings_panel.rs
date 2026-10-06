@@ -262,6 +262,15 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     )
     .default_value(false);
 
+    let (get_minimap, set_minimap) = (this.clone(), this.clone());
+    let minimap = SettingField::switch(
+        move |cx| current(&get_minimap, cx).show_minimap,
+        move |show, cx| {
+            _ = set_minimap.update(cx, |workspace, cx| workspace.set_show_minimap(show, cx));
+        },
+    )
+    .default_value(true);
+
     let (get_restore, set_restore) = (this.clone(), this.clone());
     let restore = SettingField::switch(
         move |cx| current(&get_restore, cx).restore_session,
@@ -275,6 +284,7 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
         SettingGroup::new()
             .title("Editor")
             .item(SettingItem::new("Word wrap", wrap))
+            .item(SettingItem::new("Minimap", minimap).description("Hidden while word wrap is on"))
             .item(
                 SettingItem::new("Restore last session", restore)
                     .description("Reopens your tabs, unsaved edits included, when Slate starts without files"),

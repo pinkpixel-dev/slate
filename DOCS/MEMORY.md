@@ -126,3 +126,11 @@ What was decided: `src/workspace/palette.rs` builds `CommandItem`s with no `.act
 Why: Kit's dialogs render under `Root` as a sibling of the workspace view. An action dispatched from inside the dialog walks up through the dialog and `Root` and never reaches the `Workspace` element's handlers. Kit's default hint lookup searches the same focus path, so it can't see Slate's `Workspace`-context bindings either.
 
 Rejected: `CommandItem::action` (runs nothing in Slate and shows no hints), and binding every Slate shortcut globally with no context (they would fire inside dialogs, the settings sheet, and the find fields too).
+
+### Decision: Paint Slate's own minimap, hidden while word wrap is on
+
+What was decided: The minimap is a GPUI `canvas` next to the editor (`src/workspace/minimap.rs`), drawing colored runs per buffer line from `src/minimap.rs`. Each tab runs a second Kit `SyntaxHighlighter` in the background for the colors. The minimap only shows with `show_minimap` on and word wrap off.
+
+Why: Kit 0.7.1's editor has no minimap, and it doesn't expose its syntax highlights or how buffer lines map to wrapped or folded rows. A second highlighter is the only public way to get the colors. Without the row mapping, the viewport box is only exact when one line is one row, and the user chose to hide the minimap with wrap on rather than show a box that drifts (2026-10-05).
+
+Rejected: Drawing tiny real text (shaping text at about 2px is costly and comes out as mush), showing an approximate minimap with wrap on (the box and click-to-jump drift on wrapped files), and a single-color minimap (cheaper, but the user wanted the VS Code look).

@@ -52,6 +52,7 @@ impl Workspace {
         change(&mut self.settings);
         self.save_settings();
         crate::theme::apply(&self.settings, cx);
+        self.ensure_minimap(cx);
         cx.notify();
     }
 
@@ -83,6 +84,8 @@ impl Workspace {
         for buffer in &self.buffers {
             buffer.editor.update(cx, |state, cx| state.set_soft_wrap(wrap, window, cx));
         }
+        // The minimap hides while wrap is on, and may need building when it's turned off.
+        self.ensure_minimap(cx);
         cx.notify();
     }
 
@@ -101,6 +104,7 @@ impl Workspace {
             notify_error(error, window, cx);
         }
         crate::theme::apply(&self.settings, cx);
+        self.ensure_minimap(cx);
         cx.notify();
     }
 

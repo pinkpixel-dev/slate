@@ -4,6 +4,7 @@ mod disk_watch;
 mod files;
 mod find_bar;
 mod folders;
+mod minimap;
 mod palette;
 mod preview;
 mod prefs;
@@ -27,6 +28,11 @@ mod palette_tests;
 mod disk_tests;
 #[cfg(test)]
 mod preview_tests;
+#[cfg(test)]
+mod minimap_tests;
+
+use std::cell::Cell;
+use std::rc::Rc;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
@@ -41,6 +47,7 @@ use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
 use disk_watch::FileWatcher;
 use find_bar::FindBar;
+use minimap::MinimapDrag;
 use preview::TogglePreview;
 use settings_panel::FontPickers;
 
@@ -88,6 +95,7 @@ pub fn init(cx: &mut App) {
     find_bar::init(cx);
     palette::init(cx);
     preview::init(cx);
+    minimap::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -115,6 +123,9 @@ pub struct Workspace {
     find: FindBar,
     palette: Entity<CommandState>,
     file_watcher: Option<FileWatcher>,
+    /// Where the minimap was last painted, for its mouse handlers.
+    minimap_bounds: Rc<Cell<Bounds<Pixels>>>,
+    minimap_drag: Option<MinimapDrag>,
     /// This window restores and saves the session: launched without
     /// arguments, with `restore_session` on.
     session_active: bool,
@@ -168,6 +179,8 @@ impl Workspace {
                     .inspect_err(|err| eprintln!("slate: not watching open files for changes: {err}"))
                     .ok()
             },
+            minimap_bounds: Rc::default(),
+            minimap_drag: None,
             session_active: false,
             pending_session_save: None,
             _theme_watcher: theme_watcher,
@@ -227,6 +240,7 @@ impl Workspace {
         self.sync_window_title(window);
         self.sync_find(window, cx);
         self.sync_file_watches();
+        self.ensure_minimap(cx);
         self.schedule_session_save(cx);
         cx.notify();
     }
@@ -259,6 +273,12 @@ impl Workspace {
         self.buffers.insert(target, buffer);
         let active = self.index_of(active_id).unwrap_or(0);
         self.activate(active, window, cx);
+    }
+
+    /// The tab's text changed, by an edit or by loading new text: update what mirrors it.
+    fn text_changed(&mut self, id: BufferId, cx: &mut Context<Self>) {
+        self.sync_preview(id, cx);
+        self.mark_minimap_stale(id, cx);
     }
 
     fn sync_window_title(&self, window: &mut Window) {
@@ -310,6 +330,7 @@ impl Workspace {
             .bordered(false)
             .aria_label("Editor")
             .into_any_element();
+        let editor = self.render_with_minimap(editor, cx);
         v_flex()
             .size_full()
             .child(self.render_tab_strip(window, cx))
@@ -351,6 +372,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::toggle_command_palette))
             .on_action(cx.listener(Self::toggle_preview))
+            .on_action(cx.listener(Self::toggle_minimap))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

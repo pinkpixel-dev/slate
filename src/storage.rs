@@ -21,6 +21,8 @@ pub struct Settings {
     pub word_wrap: bool,
     /// Reopen the last tabs (unsaved edits included) and folder when launched without arguments.
     pub restore_session: bool,
+    /// Show the minimap along the editor's right edge (hidden while word wrap is on).
+    pub show_minimap: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,
     /// Font overrides; `None` keeps the theme's (or Kit's) default.
@@ -37,6 +39,7 @@ impl Default for Settings {
             show_hidden_files: false,
             word_wrap: false,
             restore_session: true,
+            show_minimap: true,
             theme: None,
             ui_font: None,
             ui_font_size: None,

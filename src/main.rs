@@ -2,6 +2,7 @@ mod assets;
 mod document;
 mod file_tree;
 mod language;
+mod minimap;
 mod session;
 mod sidebar;
 mod storage;

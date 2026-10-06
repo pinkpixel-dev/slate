@@ -104,6 +104,8 @@ On Arch-based systems, you probably already have the runtime libraries. If the b
 sudo pacman -S --needed base-devel vulkan-icd-loader libxkbcommon libxkbcommon-x11 wayland fontconfig openssl
 ```
 
+If Slate prints "couldn't open a window" and exits, it couldn't find a Vulkan driver. Run `vulkaninfo --summary` to check. On Arch, the driver packages are `vulkan-radeon`, `vulkan-intel`, and `nvidia-utils`. Also check that `VK_LOADER_DRIVERS_SELECT` isn't set to a filter that hides your GPU's driver. Some desktop sessions set it to `*intel*` even on machines without the Intel Vulkan driver.
+
 ## Build and run
 
 ```bash

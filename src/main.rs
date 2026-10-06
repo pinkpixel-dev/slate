@@ -69,9 +69,16 @@ fn main() {
             ..TitleBar::window_options()
         };
 
-        let (window, workspace) =
-            open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(storage, window, cx)))
-                .expect("failed to open the Slate window");
+        let opened = open_window(options, cx, |window, cx| cx.new(|cx| Workspace::new(storage, window, cx)));
+        let (window, workspace) = match opened {
+            Ok(opened) => opened,
+            Err(err) => {
+                eprintln!("{}", window_error_message(&err.to_string()));
+                // Nothing has opened yet, so there's nothing to save or close.
+                // (`cx.quit()` here leaves GPUI's loop running with no window.)
+                std::process::exit(1);
+            }
+        };
 
         // `slate a.md b.rs` opens each file in a tab, and a folder opens in the
         // sidebar. A path that doesn't exist yet opens empty and is created on save.
@@ -107,4 +114,23 @@ fn main() {
         }
         cx.activate(true);
     });
+}
+
+/// What to print when the window can't open. Almost always this means no
+/// usable Vulkan driver, so point at the usual causes instead of a backtrace.
+fn window_error_message(err: &str) -> String {
+    let mut message = format!(
+        "slate: couldn't open a window: {err}\n\n\
+         Slate draws with Vulkan, so this usually means no Vulkan driver is available.\n\
+         Run `vulkaninfo --summary` to see what your system has, and install the driver\n\
+         for your GPU (vulkan-radeon, vulkan-intel, or nvidia-utils on Arch)."
+    );
+    if let Some(filter) = std::env::var_os("VK_LOADER_DRIVERS_SELECT") {
+        message.push_str(&format!(
+            "\n\nVK_LOADER_DRIVERS_SELECT is set to {:?}, which hides every Vulkan driver\n\
+             that doesn't match it. Try running Slate with it unset.",
+            filter.to_string_lossy()
+        ));
+    }
+    message
 }

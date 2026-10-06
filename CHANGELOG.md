@@ -39,6 +39,10 @@
 
 - New commands for everything above, in new Edit and Go groups
 
+### 🐛 Fixes
+
+- When no Vulkan driver is available, Slate now prints what's wrong and how to check, instead of panicking with a backtrace
+
 ## 0.6.0 - October 5, 2026
 
 ### 🔍 Find and Replace

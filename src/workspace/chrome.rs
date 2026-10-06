@@ -16,6 +16,13 @@ use super::{
 };
 use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
 
+/// Title bar height; gpui-kit's default is 34px.
+const TITLE_BAR_HEIGHT: f32 = 42.;
+/// Title bar icon buttons. gpui-kit draws the icon at 75% of this.
+const TITLE_BUTTON_SIZE: f32 = 30.;
+/// The small "Open Recent" chevron next to Open.
+const RECENT_BUTTON_SIZE: f32 = 24.;
+
 impl Workspace {
     pub(super) fn render_title_bar(&self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let this = cx.entity().downgrade();
@@ -27,6 +34,7 @@ impl Workspace {
             .map(display_dir);
 
         TitleBar::new()
+            .h(px(TITLE_BAR_HEIGHT))
             .on_close_window(move |_, window, cx| {
                 let close_now = this
                     .update(cx, |workspace, cx| workspace.should_close(window, cx))
@@ -43,7 +51,7 @@ impl Workspace {
                     .child(
                         Button::new("toggle-sidebar")
                             .ghost()
-                            .small()
+                            .with_size(px(TITLE_BUTTON_SIZE))
                             .icon(IconName::PanelLeft)
                             .selected(self.sidebar_open)
                             .accessibility_label("Toggle Sidebar")
@@ -53,7 +61,7 @@ impl Workspace {
                     .child(
                         Button::new("new-file")
                             .ghost()
-                            .small()
+                            .with_size(px(TITLE_BUTTON_SIZE))
                             .icon(Icon::new(CatalogIcon::FilePlus))
                             .accessibility_label("New File")
                             .tooltip_with_action("New File", &NewFile, Some(KEY_CONTEXT))
@@ -62,7 +70,7 @@ impl Workspace {
                     .child(
                         Button::new("open")
                             .ghost()
-                            .small()
+                            .with_size(px(TITLE_BUTTON_SIZE))
                             .icon(Icon::new(CatalogIcon::FolderOpen))
                             .accessibility_label("Open")
                             .tooltip_with_action("Open", &Open, Some(KEY_CONTEXT))
@@ -72,7 +80,7 @@ impl Workspace {
                     .child(
                         Button::new("save")
                             .ghost()
-                            .small()
+                            .with_size(px(TITLE_BUTTON_SIZE))
                             .icon(Icon::new(CatalogIcon::Save))
                             .accessibility_label("Save")
                             .tooltip_with_action("Save", &Save, Some(KEY_CONTEXT))
@@ -82,7 +90,7 @@ impl Workspace {
                     .child(
                         Button::new("settings")
                             .ghost()
-                            .small()
+                            .with_size(px(TITLE_BUTTON_SIZE))
                             .icon(IconName::Settings)
                             .accessibility_label("Settings")
                             .tooltip_with_action("Settings", &OpenSettings, Some(KEY_CONTEXT))
@@ -94,7 +102,7 @@ impl Workspace {
                                 .ml_2()
                                 .min_w_0()
                                 .truncate()
-                                .text_xs()
+                                .text_sm()
                                 .text_color(cx.theme().muted_foreground)
                                 .child(folder),
                         )
@@ -108,7 +116,7 @@ impl Workspace {
 
         Button::new("recent")
             .ghost()
-            .xsmall()
+            .with_size(px(RECENT_BUTTON_SIZE))
             .icon(IconName::ChevronDown)
             .accessibility_label("Open Recent")
             .tooltip("Open Recent")
@@ -159,7 +167,7 @@ impl Workspace {
 
         Button::new("theme")
             .ghost()
-            .small()
+            .with_size(px(TITLE_BUTTON_SIZE))
             .icon(IconName::Palette)
             .accessibility_label("Theme")
             .tooltip("Theme")

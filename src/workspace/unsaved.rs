@@ -22,6 +22,10 @@ impl Workspace {
     /// Closes the window once every tab is saved or discarded, asking about
     /// each unsaved tab in turn.
     pub(super) fn close_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.close_keeps_edits(cx) {
+            window.remove_window();
+            return;
+        }
         match self.buffers.iter().position(|buffer| buffer.document.is_dirty()) {
             Some(index) => {
                 let id = self.buffers[index].id;
@@ -34,6 +38,9 @@ impl Workspace {
 
     /// Returns `true` when the window can close right away.
     pub(super) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.close_keeps_edits(cx) {
+            return true;
+        }
         if !self.buffers.iter().any(|buffer| buffer.document.is_dirty()) {
             return true;
         }

@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::session::Session;
 use crate::tab_color::TabColor;
 
 const RECENT_LIMIT: usize = 10;
 
 /// User preferences, saved to `~/.config/slate/settings.json`.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub tab_color_mode: TabColorMode,
@@ -18,6 +19,8 @@ pub struct Settings {
     pub show_hidden_files: bool,
     /// Soft-wrap long lines in every editor.
     pub word_wrap: bool,
+    /// Reopen the last tabs (unsaved edits included) and folder when launched without arguments.
+    pub restore_session: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,
     /// Font overrides; `None` keeps the theme's (or Kit's) default.
@@ -25,6 +28,22 @@ pub struct Settings {
     pub ui_font_size: Option<f32>,
     pub editor_font: Option<String>,
     pub editor_font_size: Option<f32>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            tab_color_mode: TabColorMode::default(),
+            show_hidden_files: false,
+            word_wrap: false,
+            restore_session: true,
+            theme: None,
+            ui_font: None,
+            ui_font_size: None,
+            editor_font: None,
+            editor_font_size: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,6 +128,15 @@ impl Storage {
         self.state_dir.join("state.json")
     }
 
+    /// Open tabs, including unsaved text, for session restore.
+    pub fn session_path(&self) -> PathBuf {
+        self.state_dir.join("session.json")
+    }
+
+    pub fn load_session(&self) -> Session {
+        load_json(&self.session_path())
+    }
+
     pub fn load_settings(&self) -> Settings {
         load_json(&self.settings_path())
     }
@@ -182,6 +210,7 @@ mod tests {
         let storage = Storage::in_dir(&dir);
         write_atomic(&storage.settings_path(), r#"{"something_new": 1}"#).unwrap();
         assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Theme);
+        assert!(storage.load_settings().restore_session, "session restore is on unless turned off");
 
         write_atomic(&storage.settings_path(), r#"{"tab_color_mode": "language"}"#).unwrap();
         assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Language);

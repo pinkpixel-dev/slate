@@ -1,5 +1,6 @@
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::language::{self, Language};
 
@@ -14,6 +15,8 @@ pub struct Document {
     revision: u64,
     /// The revision that was last written to (or read from) disk.
     saved_revision: u64,
+    /// The file's modified time when it was last read or saved.
+    disk_modified: Option<SystemTime>,
 }
 
 impl Document {
@@ -24,6 +27,7 @@ impl Document {
             language: Language::PLAIN,
             revision: 0,
             saved_revision: 0,
+            disk_modified: None,
         }
     }
 
@@ -34,6 +38,7 @@ impl Document {
             untitled_number: 0,
             revision: 0,
             saved_revision: 0,
+            disk_modified: None,
         }
     }
 
@@ -79,6 +84,14 @@ impl Document {
         self.revision
     }
 
+    pub fn disk_modified(&self) -> Option<SystemTime> {
+        self.disk_modified
+    }
+
+    pub fn set_disk_modified(&mut self, modified: Option<SystemTime>) {
+        self.disk_modified = modified;
+    }
+
     pub fn mark_edited(&mut self) {
         self.revision += 1;
     }
@@ -106,6 +119,11 @@ pub fn read_text(path: &Path) -> io::Result<String> {
     }
     String::from_utf8(bytes)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "isn't valid UTF-8 text"))
+}
+
+/// A file's modified time, or `None` if it's missing or the filesystem doesn't say.
+pub fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).and_then(|meta| meta.modified()).ok()
 }
 
 pub fn write_text(path: &Path, text: &str) -> io::Result<()> {

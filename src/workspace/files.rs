@@ -1,5 +1,6 @@
 use std::io;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::notification::Notification;
@@ -51,15 +52,15 @@ impl Workspace {
 
         let read = cx.background_spawn({
             let path = path.clone();
-            async move { document::read_text(&path) }
+            async move { document::read_text(&path).map(|text| (text, document::modified(&path))) }
         });
 
         cx.spawn_in(window, async move |this, cx| {
             let result = read.await;
             _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok(text) => workspace.show_file(path, text, window, cx),
+                Ok((text, modified)) => workspace.show_file(path, text, modified, window, cx),
                 Err(err) if missing_ok && err.kind() == io::ErrorKind::NotFound => {
-                    workspace.show_file(path, String::new(), window, cx)
+                    workspace.show_file(path, String::new(), None, window, cx)
                 }
                 Err(err) => notify_error(format!("Couldn't open {}: {err}", path.display()), window, cx),
             });
@@ -78,13 +79,21 @@ impl Workspace {
         open.is_some()
     }
 
-    fn show_file(&mut self, path: PathBuf, text: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn show_file(
+        &mut self,
+        path: PathBuf,
+        text: String,
+        modified: Option<SystemTime>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         // Two opens of the same file can race; the second one just switches to it.
         if self.focus_open_path(&path, window, cx) {
             return;
         }
         let color = self.state.tab_colors.get(&path).cloned();
-        let document = Document::from_path(path);
+        let mut document = Document::from_path(path);
+        document.set_disk_modified(modified);
 
         if self.active_buffer().is_pristine(cx) {
             let language = document.language().id;
@@ -176,13 +185,18 @@ impl Workspace {
         let text = buffer.editor.read(cx).value();
         let write = cx.background_spawn({
             let path = path.clone();
-            async move { document::write_text(&path, &text) }
+            async move { document::write_text(&path, &text).map(|()| document::modified(&path)) }
         });
 
         cx.spawn_in(window, async move |this, cx| {
             let result = write.await;
             _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok(()) => workspace.finish_save(id, path, revision, after, window, cx),
+                Ok(modified) => {
+                    if let Some(buffer) = workspace.buffer_mut(id) {
+                        buffer.document.set_disk_modified(modified);
+                    }
+                    workspace.finish_save(id, path, revision, after, window, cx)
+                }
                 Err(err) => notify_error(format!("Couldn't save {}: {err}", path.display()), window, cx),
             });
         })
@@ -212,6 +226,7 @@ impl Workspace {
         }
         self.remember_file(id);
         self.sync_window_title(window);
+        self.schedule_session_save(cx);
         cx.notify();
         if let Some(action) = after {
             self.run_pending(action, window, cx);

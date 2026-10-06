@@ -4,6 +4,7 @@ mod files;
 mod find_bar;
 mod folders;
 mod prefs;
+mod session;
 mod settings_panel;
 mod tab_menu;
 mod tab_strip;
@@ -15,6 +16,8 @@ mod find_tests;
 mod tests;
 #[cfg(test)]
 mod wrap_tests;
+#[cfg(test)]
+mod session_tests;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::input::Editor;
@@ -96,6 +99,10 @@ pub struct Workspace {
     sidebar_open: bool,
     font_pickers: Option<FontPickers>,
     find: FindBar,
+    /// This window restores and saves the session: launched without
+    /// arguments, with `restore_session` on.
+    session_active: bool,
+    pending_session_save: Option<Task<()>>,
     _theme_watcher: Option<ThemeWatcher>,
     _subscriptions: Vec<Subscription>,
 }
@@ -135,6 +142,8 @@ impl Workspace {
             sidebar_open: false,
             font_pickers: None,
             find,
+            session_active: false,
+            pending_session_save: None,
             _theme_watcher: theme_watcher,
             _subscriptions: subscriptions,
         };
@@ -191,6 +200,7 @@ impl Workspace {
         self.tab_scroll.scroll_to_item(index);
         self.sync_window_title(window);
         self.sync_find(window, cx);
+        self.schedule_session_save(cx);
         cx.notify();
     }
 

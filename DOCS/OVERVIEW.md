@@ -22,12 +22,12 @@ This document describes how the project works right now. It is present tense. De
 2. `theme::init(storage.themes_dir(), cx)` parses the bundled themes, creates and reads the custom themes folder, records Kit's starting fonts and radius as a baseline, and stores it all in the `ThemeCatalog` global. Nothing is applied yet.
 3. `sidebar::init` binds Enter in the tree, and `workspace::init` binds the shortcuts in the `Workspace` key context.
 4. A window opens with client-side decorations (`WindowDecorations::Client`) and app id `dev.pinkpixel.Slate`. `Workspace::new(storage, ...)` loads settings and state, applies the theme and fonts with `theme::apply`, starts the custom themes watcher, then opens one Untitled tab. `open_window` wraps it in Kit's `Root`, which owns the window border, dialogs, sheets, notifications, and tooltips.
-5. Each command-line path goes through `open_path(path, missing_ok: true)`. A folder opens in the sidebar.
+5. With no command-line arguments, `restore_session` brings back the last session (if `restore_session` is on in settings). Otherwise each path goes through `open_path(path, missing_ok: true)`, and a folder opens in the sidebar.
 6. When the last window closes, the app quits.
 
 Invariants:
 
-- Anything that would throw away unsaved edits (closing a tab, Close Others, Quit, the title bar close button, or a window-manager close) goes through `close_buffer` or `close_window`, which ask first.
+- Anything that would throw away unsaved edits (closing a tab, Close Others, Quit, the title bar close button, or a window-manager close) goes through `close_buffer` or `close_window`, which ask first. The exception is closing the whole window while session restore is active: the edits are written to `session.json` instead of being thrown away, so it closes without asking.
 - The window always has at least one tab. Closing the last one replaces it with a fresh Untitled tab.
 
 ## Structure
@@ -46,6 +46,7 @@ Invariants:
 | `src/sidebar/mod.rs` | `Sidebar` view: lazy loading, refresh, `SidebarEvent` |
 | `src/sidebar/view.rs` | Sidebar header, empty state, and tree rows |
 | `src/sidebar/watcher.rs` | `DirWatcher`: per-folder `notify` watches with debounced rescans |
+| `src/session.rs` | `Session` and `SessionTab`, the shape of `session.json` |
 | `src/storage.rs` | `Settings`, `AppState`, `Storage` paths, JSON loading, and atomic writes |
 | `src/workspace/mod.rs` | `Workspace`: buffers, actions, tab bookkeeping, and render |
 | `src/workspace/buffer.rs` | `Buffer` (one tab) and `BufferId` |
@@ -54,6 +55,7 @@ Invariants:
 | `src/workspace/folders.rs` | Open Folder, the sidebar toggle, sidebar events, and the resizable body layout |
 | `src/workspace/unsaved.rs` | Close flows and the Save / Don't Save / Cancel dialog |
 | `src/workspace/prefs.rs` | Tab color resolution, appearance and hidden-file setters, theme reloads, and writing settings and state |
+| `src/workspace/session.rs` | Restoring, collecting, and writing the session, and the hot exit check |
 | `src/workspace/settings_panel.rs` | The settings sheet and its searchable font pickers |
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
 | `src/workspace/tab_menu.rs` | Tab right-click menu and the custom color dialog |
@@ -61,6 +63,7 @@ Invariants:
 | `src/workspace/tests.rs` | Headless UI tests and the shared test helpers |
 | `src/workspace/find_tests.rs` | Headless tests for the find bar |
 | `src/workspace/wrap_tests.rs` | Headless tests for word wrap |
+| `src/workspace/session_tests.rs` | Headless tests for session restore |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
@@ -118,6 +121,7 @@ Reads and writes run on GPUI's background executor, and results come back throug
 - `open_path` makes the path absolute, switches to the tab if the file is already open, and otherwise reads it in the background. With `missing_ok`, a `NotFound` error opens an empty tab with that path. `show_file` checks for an open tab again, since two opens of the same file can race.
 - `read_text` refuses files containing a NUL byte and files that aren't valid UTF-8. Nothing is decoded lossily.
 - `write_text` is a plain `std::fs::write`, so it keeps the file's inode and permissions.
+- `Document` keeps the file's modified time from the last read or save (`disk_modified`), so session restore can tell whether a file changed under unsaved edits.
 - After a save, the language is re-detected and the highlighter switched if it changed, and the file is added to the recent list.
 
 ## Tab strip
@@ -130,6 +134,26 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
+
+## Session restore
+
+A window restores and saves the session only when Slate starts without arguments and `restore_session` is on. `Workspace::session_active` tracks that. A window opened with files (`slate notes.txt`) never reads or writes `session.json`, so whatever the last no-argument run stashed is kept for later, and quitting asks about unsaved tabs as usual.
+
+**What's saved.** `collect_session` keeps every file tab and every untitled tab with text. Untitled tabs always store their text. File tabs store it only when they have unsaved edits, along with the file's `disk_modified` from when those edits started. Each tab also keeps its hand-picked color, its untitled number, and its cursor offset. The active tab and the sidebar folder are saved too.
+
+**When it's written.** `schedule_session_save` replaces a one-second timer on every edit, tab switch, tab open or close, save, and sidebar change, so typing doesn't write on each key. Closing the window writes it straight away. Writes use `write_atomic` on the UI thread, like the other state files.
+
+**Hot exit.** While the session is active, `close_window` and `should_close` write the session and close without the unsaved-changes dialog. `Ctrl+W` on a single unsaved tab still asks.
+
+**Restoring.** `restore_session` reopens the folder (if it still exists), then adds tabs in order after the starting Untitled tab and removes that tab once anything is restored.
+
+- Tabs with saved text come back with that text, still marked unsaved. If the file's modified time no longer matches, Slate shows a warning that the file changed on disk and saving will overwrite it.
+- Clean file tabs are reloaded from disk in the background. A file that's gone, or no longer reads as text, gets an error notification and its tab is dropped.
+- Cursors are put back with `set_selected_range`.
+
+**Turning it off** in Settings deletes `session.json` (everything in it is open in the window at that point) and stops saving. Turning it on starts saving the current window.
+
+Only one Slate process should run with restore active at a time. Two would overwrite each other's `session.json`, and the last one to close wins.
 
 ## Word wrap
 
@@ -182,8 +206,9 @@ Theme mode colors by position, so dragging a tab to a new spot changes its color
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `word_wrap`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
+| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `word_wrap`: `false` by default. `restore_session`: `true` by default (`Settings` has a hand-written `Default` for this). `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
+| `session.json` | `Session` | Open tabs, the active tab, the sidebar folder, and whether the sidebar was open. See Session restore |
 
 Both use `#[serde(default)]`, so missing keys get defaults and unknown keys are ignored. A missing file loads as defaults. An unparseable file prints a warning and loads as defaults, and it gets overwritten the next time that file is saved.
 
@@ -216,17 +241,18 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 43 tests.
+Run `cargo test`. There are 49 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - `workspace/find_tests.rs` covers stepping through matches, starting from the cursor and seeding from the selection, match case, replace and replace all, and the search following tab switches.
 - `workspace/wrap_tests.rs` checks wrapping by behavior, since Kit has no soft wrap getter: on a long wrapped line, Down stays on buffer line 0. It covers `Alt+Z`, new tabs picking up the setting, the saved setting, and the settings panel path.
+- `session.rs` unit tests cover the `session.json` round trip and the disk-change check. `workspace/session_tests.rs` covers a full quit and relaunch (untitled text, an edited file, a clean file, the active tab, and the sidebar folder), the one-second debounce, a launch with files leaving the stored session alone, and turning restore off.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
 
-- Session restore doesn't exist yet, so tabs and the sidebar folder aren't reopened at launch.
+- Two Slate processes running with session restore will overwrite each other's `session.json`.
 - The sidebar's width resets each time it opens, and it can't create, rename, or delete files.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.

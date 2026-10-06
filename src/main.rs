@@ -2,6 +2,7 @@ mod assets;
 mod document;
 mod file_tree;
 mod language;
+mod session;
 mod sidebar;
 mod storage;
 mod tab_color;
@@ -50,8 +51,12 @@ fn main() {
 
         // `slate a.md b.rs` opens each file in a tab, and a folder opens in the
         // sidebar. A path that doesn't exist yet opens empty and is created on save.
+        // With no arguments, the last session comes back instead.
         _ = window.update(cx, |_, window, cx| {
             workspace.update(cx, |workspace, cx| {
+                if file_args.is_empty() {
+                    workspace.restore_session(window, cx);
+                }
                 for path in file_args {
                     workspace.open_path(path, true, window, cx);
                 }

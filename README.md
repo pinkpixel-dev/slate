@@ -16,11 +16,13 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - An Open Recent menu next to the Open button
 - A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, and it updates by itself when files change
 - Syntax highlighting for 23 languages, picked automatically from the file name
-- Line numbers, code folding, undo and redo, find and replace, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
-- A dot by the file name when you have unsaved edits, and a Save / Don't Save / Cancel prompt before anything would throw them away
-- A Show Whitespace toggle in the status bar, next to the cursor position and language
+- Line numbers, code folding, undo and redo, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
+- A find and replace bar (`Ctrl+F`, `Ctrl+H`) with a match counter and a Match Case toggle. It starts at your cursor and selects the match it lands on
+- Session restore: start Slate without any files and it reopens your last tabs and sidebar folder, unsaved edits included. Quitting doesn't nag you about unsaved tabs, because they'll be right there next time. If a file changed on disk while you had edits stashed, Slate tells you. You can turn this off in Settings
+- A dot by the file name when you have unsaved edits. Closing an unsaved tab asks Save / Don't Save / Cancel, and so does quitting when session restore is off or you opened Slate with files
+- Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position and language
 - 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
-- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, tab color mode, and hidden files
+- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, session restore, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
 
@@ -37,12 +39,15 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+,` | Settings |
 | `Ctrl+W` | Close tab |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
-| `Ctrl+F` | Find and replace |
+| `Ctrl+F` | Find |
+| `Ctrl+H` | Find and replace |
+| `F3` / `Shift+F3` | Next / previous match |
+| `Alt+Z` | Word wrap |
 | `Ctrl+Q` | Quit |
 
 ### Where Slate keeps things
 
-Your preferences live in `~/.config/slate/settings.json`, and custom themes go in `~/.config/slate/themes/`. Recent files and tab colors live in `~/.local/state/slate/state.json`. Both are plain JSON, so you can edit or delete them. Slate falls back to defaults if either one is missing.
+Your preferences live in `~/.config/slate/settings.json`, and custom themes go in `~/.config/slate/themes/`. Recent files and tab colors live in `~/.local/state/slate/state.json`, and your last session (including the text of unsaved tabs) lives in `~/.local/state/slate/session.json`. They're all plain JSON, so you can edit or delete them. Slate falls back to defaults if one is missing.
 
 ### Custom themes
 

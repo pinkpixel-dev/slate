@@ -262,8 +262,23 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     )
     .default_value(false);
 
+    let (get_restore, set_restore) = (this.clone(), this.clone());
+    let restore = SettingField::switch(
+        move |cx| current(&get_restore, cx).restore_session,
+        move |restore, cx| {
+            _ = set_restore.update(cx, |workspace, cx| workspace.set_restore_session(restore, cx));
+        },
+    )
+    .default_value(true);
+
     [
-        SettingGroup::new().title("Editor").item(SettingItem::new("Word wrap", wrap)),
+        SettingGroup::new()
+            .title("Editor")
+            .item(SettingItem::new("Word wrap", wrap))
+            .item(
+                SettingItem::new("Restore last session", restore)
+                    .description("Reopens your tabs, unsaved edits included, when Slate starts without files"),
+            ),
         SettingGroup::new().title("Tabs").item(SettingItem::new("Tab colors", tab_colors)),
         SettingGroup::new()
             .title("Sidebar")

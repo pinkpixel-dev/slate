@@ -61,6 +61,7 @@ impl Buffer {
                 };
                 let was_dirty = buffer.document.is_dirty();
                 buffer.document.mark_edited();
+                this.schedule_session_save(cx);
                 if !was_dirty {
                     this.sync_window_title(window);
                     cx.notify();

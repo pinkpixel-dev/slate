@@ -39,6 +39,7 @@ impl Workspace {
         let dir = std::path::absolute(&dir).unwrap_or(dir);
         self.sidebar.update(cx, |sidebar, cx| sidebar.open_folder(dir, cx));
         self.sidebar_open = true;
+        self.schedule_session_save(cx);
         cx.notify();
     }
 
@@ -56,6 +57,7 @@ impl Workspace {
                 self.sidebar.update(cx, |sidebar, cx| sidebar.open_folder(folder, cx));
             }
         }
+        self.schedule_session_save(cx);
         cx.notify();
     }
 

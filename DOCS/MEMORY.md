@@ -110,3 +110,11 @@ What was decided: `src/workspace/find_bar.rs` renders the find and replace bar a
 Why: The user wanted the find bar to match the rest of Slate's chrome (agreed 2026-10-05). Kit still does the matching, highlights, and replacing, so the custom part is only layout and key handling.
 
 Rejected: Kit's built-in search panel. It works fine but floats over the editor in Kit's own styling. Writing a separate matcher was also rejected, because Kit's highlights only follow its own matcher.
+
+### Decision: Session restore keeps unsaved edits and skips the quit prompt
+
+What was decided: With `restore_session` on (the default) and no command-line arguments, Slate saves its tabs to `$XDG_STATE_HOME/slate/session.json`, including the text of untitled tabs and of files with unsaved edits. Closing the window then writes the session and closes without the Save / Don't Save dialog. `Ctrl+W` on one tab still asks. The session is written one second after edits stop, and right away on close. This supersedes "Don't reopen the last sidebar folder at launch until session restore exists": the folder now comes back as part of the session.
+
+Why: The user forgets to save and wanted nothing lost between runs (agreed 2026-10-05). Writing while they work means a crash loses at most a second of typing. A launch with files never touches the stored session, so `slate notes.txt` stays a quick edit and can't overwrite stashed work.
+
+Rejected: Keeping the quit prompt with restore on (its Don't Save would really throw edits away, which defeats the point). Writing only on quit (a crash loses everything). Loading the disk version when a file changed under stashed edits (loses the edits; Slate restores them and warns instead).

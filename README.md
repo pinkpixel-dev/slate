@@ -18,7 +18,8 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - A find and replace bar (`Ctrl+F`, `Ctrl+H`) with a match counter and a Match Case toggle. It starts at your cursor and selects the match it lands on
-- Session restore: start Slate without any files and it reopens your last tabs and sidebar folder, unsaved edits included. Quitting doesn't nag you about unsaved tabs, because they'll be right there next time. If a file changed on disk while you had edits stashed, Slate tells you. You can turn this off in Settings
+- Session restore: start Slate without any files and it reopens your last tabs and sidebar folder, unsaved edits included. Quitting doesn't nag you about unsaved tabs, because they'll be right there next time. You can turn this off in Settings
+- Slate notices when an open file changes on disk. Tabs without edits just reload. If you have unsaved edits, a bar asks whether to reload or keep yours. A deleted file stays open, marked unsaved, so saving puts it back
 - A dot by the file name when you have unsaved edits. Closing an unsaved tab asks Save / Don't Save / Cancel, and so does quitting when session restore is off or you opened Slate with files
 - Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position and language
 - 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar

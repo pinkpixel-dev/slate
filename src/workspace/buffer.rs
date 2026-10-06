@@ -16,6 +16,11 @@ pub struct Buffer {
     pub document: Document,
     /// A hand-picked color. In "color by language" mode this still wins.
     pub color: Option<TabColor>,
+    /// The file changed on disk while this tab had unsaved edits.
+    pub disk_conflict: bool,
+    /// Saves still writing. Disk checks wait for them, so our own writes
+    /// don't look like outside changes.
+    pub saves_in_flight: u32,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -74,6 +79,8 @@ impl Buffer {
             editor,
             document,
             color: None,
+            disk_conflict: false,
+            saves_in_flight: 0,
             _subscriptions: subscriptions,
         }
     }

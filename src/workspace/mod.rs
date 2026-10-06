@@ -1,5 +1,6 @@
 mod buffer;
 mod chrome;
+mod disk_watch;
 mod files;
 mod find_bar;
 mod folders;
@@ -21,6 +22,8 @@ mod wrap_tests;
 mod session_tests;
 #[cfg(test)]
 mod palette_tests;
+#[cfg(test)]
+mod disk_tests;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
@@ -33,6 +36,7 @@ use crate::sidebar::Sidebar;
 use crate::storage::{AppState, Settings, Storage};
 use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
+use disk_watch::FileWatcher;
 use find_bar::FindBar;
 use settings_panel::FontPickers;
 
@@ -105,6 +109,7 @@ pub struct Workspace {
     font_pickers: Option<FontPickers>,
     find: FindBar,
     palette: Entity<CommandState>,
+    file_watcher: Option<FileWatcher>,
     /// This window restores and saves the session: launched without
     /// arguments, with `restore_session` on.
     session_active: bool,
@@ -149,6 +154,15 @@ impl Workspace {
             font_pickers: None,
             find,
             palette: cx.new(|cx| CommandState::new(window, cx)),
+            // Tests drive `on_files_changed` directly: real inotify events would
+            // wake GPUI's deterministic test scheduler from another thread.
+            file_watcher: if cfg!(test) {
+                None
+            } else {
+                FileWatcher::new(window, cx)
+                    .inspect_err(|err| eprintln!("slate: not watching open files for changes: {err}"))
+                    .ok()
+            },
             session_active: false,
             pending_session_save: None,
             _theme_watcher: theme_watcher,
@@ -207,6 +221,7 @@ impl Workspace {
         self.tab_scroll.scroll_to_item(index);
         self.sync_window_title(window);
         self.sync_find(window, cx);
+        self.sync_file_watches();
         self.schedule_session_save(cx);
         cx.notify();
     }
@@ -288,6 +303,7 @@ impl Workspace {
         v_flex()
             .size_full()
             .child(self.render_tab_strip(window, cx))
+            .children(self.render_disk_bar(cx))
             .children(self.render_find_bar(cx))
             .child(
                 div().flex_1().min_h_0().child(

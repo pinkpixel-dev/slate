@@ -45,3 +45,11 @@ What did not work: A test module with `use gpui_kit::*;` and `#[gpui_kit::test]`
 What worked instead: Import Kit items by name in test modules (`use gpui_kit::{AnyWindowHandle, TestAppContext, ...}`), with no glob.
 
 Note for next time: Never glob-import `gpui_kit` in a `#[cfg(test)]` module.
+
+### Note: Real `notify` watchers panic GPUI's test scheduler
+
+What did not work: Starting `FileWatcher` inside a headless test and then writing to a watched file. The test failed with "Detected activity on thread Some(\"notify-rs inotify loop\") ... Your test is not deterministic", because the inotify thread scheduled work on GPUI's test executor from outside the test thread.
+
+What worked instead: `Workspace::new` skips `FileWatcher` under `cfg!(test)`, and the tests call `Workspace::on_files_changed` directly with the changed paths. The sidebar's `DirWatcher` only gets away with running in tests because those tests never write into a watched folder.
+
+Note for next time: In headless tests, call a watcher's callback directly instead of letting a real OS watcher run.

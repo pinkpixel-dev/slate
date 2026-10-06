@@ -180,7 +180,8 @@ impl Workspace {
         let Some(index) = self.index_of(id) else {
             return;
         };
-        let buffer = &self.buffers[index];
+        let buffer = &mut self.buffers[index];
+        buffer.saves_in_flight += 1;
         let revision = buffer.document.revision();
         let text = buffer.editor.read(cx).value();
         let write = cx.background_spawn({
@@ -190,14 +191,20 @@ impl Workspace {
 
         cx.spawn_in(window, async move |this, cx| {
             let result = write.await;
-            _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok(modified) => {
-                    if let Some(buffer) = workspace.buffer_mut(id) {
+            _ = this.update_in(cx, |workspace, window, cx| {
+                let Some(buffer) = workspace.buffer_mut(id) else {
+                    return;
+                };
+                buffer.saves_in_flight -= 1;
+                match result {
+                    Ok(modified) => {
                         buffer.document.set_disk_modified(modified);
+                        // Saving answers any "changed on disk" question.
+                        buffer.disk_conflict = false;
+                        workspace.finish_save(id, path, revision, after, window, cx)
                     }
-                    workspace.finish_save(id, path, revision, after, window, cx)
+                    Err(err) => notify_error(format!("Couldn't save {}: {err}", path.display()), window, cx),
                 }
-                Err(err) => notify_error(format!("Couldn't save {}: {err}", path.display()), window, cx),
             });
         })
         .detach();
@@ -226,6 +233,7 @@ impl Workspace {
         }
         self.remember_file(id);
         self.sync_window_title(window);
+        self.sync_file_watches();
         self.schedule_session_save(cx);
         cx.notify();
         if let Some(action) = after {

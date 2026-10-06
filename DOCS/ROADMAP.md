@@ -47,9 +47,16 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Markdown preview split
 - Minimap
 - Command palette (`Ctrl+Shift+P`)
+- Notice when an open file changes on disk: reload clean tabs quietly, and ask before replacing unsaved edits
 
 ## Phase 6: Polish and packaging
 
+- Go to Line (`Ctrl+G`)
+- Zoom the editor font with `Ctrl+=`, `Ctrl+-`, and `Ctrl+0`
+- Detect each file's indentation (tabs or spaces, and width) and line endings, show them in the status bar, and let you change them there
+- Single instance: `slate notes.txt` opens a tab in the window that's already running, which also stops two windows from overwriting each other's session
+- Line editing shortcuts: duplicate line, move line up and down, and toggle comment (`Ctrl+/`), for whichever of these Kit doesn't already do
+- Quick Open (`Ctrl+P`): fuzzy-find a file in the sidebar folder
 - Keyboard shortcut pass, accessibility labels, and tooltips
 - Startup time check
 - `.desktop` file and app icon

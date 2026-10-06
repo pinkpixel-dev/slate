@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use gpui_kit::component::WindowExt as _;
-use gpui_kit::component::notification::Notification;
 use gpui_kit::*;
 
 use super::Workspace;
@@ -71,17 +69,8 @@ impl Workspace {
                 buffer.document.mark_edited();
                 buffer.document.set_disk_modified(tab.disk_modified);
                 buffer.color = color;
-                if let Some(path) = path
-                    && tab.disk_changed()
-                {
-                    let name = path.file_name().unwrap_or_default().to_string_lossy();
-                    window.push_notification(
-                        Notification::warning(format!(
-                            "{name} changed on disk since your unsaved edits. Saving will overwrite it."
-                        )),
-                        cx,
-                    );
-                }
+                // The file moved on while these edits were stashed: ask Reload / Keep Mine.
+                buffer.disk_conflict = path.is_some() && tab.disk_changed();
                 self.restore_cursor(self.buffers[self.active].id, tab.cursor, cx);
             }
             // A clean file reloads from disk, in the background.

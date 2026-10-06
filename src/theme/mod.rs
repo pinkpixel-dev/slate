@@ -13,10 +13,12 @@ pub use watcher::ThemeWatcher;
 
 pub const DEFAULT_THEME_NAME: &str = "Slate Dark";
 
-/// Slate's own theme plus Kit's theme set (from gpui-kit v0.7.1, Apache-2.0),
+/// Slate's own themes plus Kit's theme set (from gpui-kit v0.7.1, Apache-2.0),
 /// embedded so every theme works with no files on disk.
 const BUNDLED: &[&str] = &[
     include_str!("../../themes/slate.json"),
+    include_str!("../../themes/slate-blue.json"),
+    include_str!("../../themes/neon.json"),
     include_str!("../../themes/kit/adventure.json"),
     include_str!("../../themes/kit/alduin.json"),
     include_str!("../../themes/kit/asciinema.json"),
@@ -243,6 +245,8 @@ mod tests {
             names.extend(parse_set(source).unwrap().into_iter().map(|theme| theme.name.clone()));
         }
         assert!(names.iter().any(|name| name == DEFAULT_THEME_NAME));
+        assert!(names.iter().any(|name| name == "Slate Blue"));
+        assert!(names.iter().any(|name| name == "Neon"));
         assert!(names.iter().any(|name| name == "Catppuccin Mocha"));
         assert!(names.len() > 30);
     }

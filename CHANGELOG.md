@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 - October 6, 2026
+
+### 🎨 Themes
+
+- New Slate Blue theme: a blue-gray slate editor with slightly lighter chrome and blue, cyan, white, and purple syntax colors
+- New Neon theme: a dark charcoal editor with bright neon syntax colors, based on the bl1nk Kitty terminal theme
+- Both show up in the theme menu and Settings, and color-coded tabs pick up their palettes too
+
+### 🏷️ Versioning
+
+- Bumped to 0.8.0
+
 ## 0.7.0 - October 6, 2026
 
 ### ✏️ Editing

@@ -24,7 +24,7 @@
 - Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position and language
 - Slate guesses each file's indentation (tabs or spaces, and how wide) and line endings when it opens. Both show in the status bar, and clicking them lets you switch. A CRLF file stays CRLF when you save, unless you change it there
 - One Slate at a time: running `slate notes.txt` while Slate is already open adds a tab to that window instead of starting a second copy
-- 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
+- 39 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Slate Blue (blue-gray slate with blue, cyan, and purple syntax), Neon (dark charcoal with bright neon syntax colors), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
 - A minimap (`Ctrl+Shift+M`) with syntax colors along the right edge. Click or drag it to move around. It hides while word wrap is on
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
 - A command palette (`Ctrl+Shift+P`) for running any command by name, with its shortcut shown next to it

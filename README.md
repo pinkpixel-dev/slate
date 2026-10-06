@@ -1,6 +1,8 @@
 # Slate
 
-	A fast, minimal text editor for Linux, built with GPUI Kit
+**A fast, minimal text editor for Linux, built with GPUI Kit**
+
+![Slate editor](screenshot.png)
 
 ## Features
 

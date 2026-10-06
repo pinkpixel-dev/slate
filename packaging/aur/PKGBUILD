@@ -26,7 +26,7 @@ conflicts=('slate' 'slate-git' 'slate-bin')
 options=('!lto')
 source=("$_name-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 # Run `updpkgsums` after the v$pkgver tag is on GitHub to fill this in.
-sha256sums=('SKIP')
+sha256sums=('83cd331c52bbc78d29cc671eb5f2628d7bb287bd16bc55ac331929519eca5ecf')
 
 prepare() {
   cd "$_name-$pkgver"

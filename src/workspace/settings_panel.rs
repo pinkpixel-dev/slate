@@ -22,8 +22,8 @@ const MAX_FONT_SIZE: f64 = 32.;
 /// The searchable font pickers. Built the first time the panel opens, since
 /// listing fonts asks fontconfig.
 pub(super) struct FontPickers {
-    ui: FontSelect,
-    editor: FontSelect,
+    pub(super) ui: FontSelect,
+    pub(super) editor: FontSelect,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -223,17 +223,26 @@ fn size_field(
 fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 2] {
     let (get_mode, set_mode) = (this.clone(), this.clone());
     let tab_colors = SettingField::dropdown(
-        vec![("manual".into(), "Manual".into()), ("language".into(), "By language".into())],
+        vec![
+            ("theme".into(), "Theme".into()),
+            ("language".into(), "By language".into()),
+            ("off".into(), "Off".into()),
+        ],
         move |cx| match current(&get_mode, cx).tab_color_mode {
-            TabColorMode::Manual => "manual".into(),
+            TabColorMode::Theme => "theme".into(),
             TabColorMode::Language => "language".into(),
+            TabColorMode::Off => "off".into(),
         },
         move |mode: SharedString, cx| {
-            let mode = if mode == "language" { TabColorMode::Language } else { TabColorMode::Manual };
+            let mode = match mode.as_ref() {
+                "language" => TabColorMode::Language,
+                "off" => TabColorMode::Off,
+                _ => TabColorMode::Theme,
+            };
             _ = set_mode.update(cx, |workspace, cx| workspace.set_tab_color_mode(mode, cx));
         },
     )
-    .default_value("manual");
+    .default_value("theme");
 
     let (get_hidden, set_hidden) = (this.clone(), this.clone());
     let hidden = SettingField::switch(

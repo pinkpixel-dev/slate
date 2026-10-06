@@ -18,6 +18,12 @@
 - Tab color mode and the hidden-files toggle are in the panel too
 - Every setting has a reset button that puts it back to the default
 
+### 🗂️ Tab colors
+
+- Tabs are colored out of the box now. The new default mode cycles through the theme's syntax colors by tab position, so tab colors change along with the theme
+- The tab color setting has three modes: Theme, By language, and Off. Settings files that say `"manual"` load as Off
+- A color picked from a tab's right-click menu still overrides the mode. "None" in that menu is now called "Automatic", and the "Color Tabs by Language" item moved to Settings
+
 ### 🏷️ Versioning
 
 - Bumped to 0.5.0

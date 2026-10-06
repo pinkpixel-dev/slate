@@ -90,7 +90,7 @@ impl Workspace {
         let id = buffer.id;
         let selected = index == self.active;
         let dirty = buffer.document.is_dirty();
-        let accent = self.tab_hsla(buffer, cx);
+        let accent = self.tab_hsla(index, buffer, cx);
         let label: SharedString = buffer.document.display_name().into();
         let path: Option<SharedString> = buffer
             .document

@@ -121,7 +121,7 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Mouse:** click activates, middle-click closes, and the hover tooltip shows the full path. Dragging carries a `DraggedTab`, which is also its drag preview. Dropping onto a tab calls `move_buffer(id, that_index)`. Dropping onto the empty area after the tabs moves the tab to the end, and double-clicking that area makes a new file.
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
-The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: None, six presets with swatches, Custom... (a dialog with Kit's `ColorSelect`), and a "Color Tabs by Language" check item.
+The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
 
 ## Sidebar
 
@@ -139,7 +139,15 @@ The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color su
 
 `TabColor` is `Red`, `Yellow`, `Green`, `Teal`, `Blue`, `Purple`, or `Custom(hex)`. Presets resolve through the active theme's `red`, `yellow`, `green`, `cyan`, `blue`, and `magenta` colors, so they follow theme changes. Custom colors are stored as hex and stay fixed.
 
-`Workspace::tab_color(buffer)` returns the buffer's hand-picked color first. In `TabColorMode::Language` it falls back to `TabColor::for_language(id)`, and plain text gets no color.
+`Workspace::tab_hsla(index, buffer, cx)` returns the buffer's hand-picked color first. Otherwise it depends on `TabColorMode`:
+
+| Mode | Color |
+|---|---|
+| `Theme` (default) | `tab_color::theme_cycle(theme)[index % len]`: the theme's `keyword`, `string`, `function`, `type`, `constant`, `attribute`, `tag`, `number`, `title`, and `constructor` syntax colors, skipping ones that look the same as an earlier pick or as the text color. With fewer than three left, it uses the six presets instead |
+| `Language` | `TabColor::for_language(id)`, resolved through the theme. Plain text gets no color |
+| `Off` | None |
+
+Theme mode colors by position, so dragging a tab to a new spot changes its color.
 
 ## Settings and state
 
@@ -147,7 +155,7 @@ The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color su
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"manual"` (default) or `"language"`. `show_hidden_files`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
+| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
 
 Both use `#[serde(default)]`, so missing keys get defaults and unknown keys are ignored. A missing file loads as defaults. An unparseable file prints a warning and loads as defaults, and it gets overwritten the next time that file is saved.
@@ -181,10 +189,10 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 32 tests.
+Run `cargo test`. There are 36 tests.
 
-- Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
-- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, and `Ctrl+,` opening the settings sheet. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
+- Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
+- `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
@@ -195,4 +203,5 @@ Run `cargo test`. There are 32 tests.
 - The status bar's "Spaces: 4" and "UTF-8" labels are fixed.
 - Typing a font size goes through Kit's number field, which applies each keystroke clamped to 8 to 32. Typing `14` briefly applies 8 first. The + and - buttons don't have that problem.
 - The theme list doesn't mark which themes are custom.
+- With a font list open in Settings, the first click on the panel's X only closes the list. Kit's `Select` handles the click outside its popup itself and stops it there.
 - Only tested on CachyOS with COSMIC (Wayland). The sidebar hasn't been checked on screen yet.

@@ -7,19 +7,26 @@ use super::Workspace;
 use super::buffer::{Buffer, BufferId};
 use super::files::notify_error;
 use crate::storage::{self, Settings, TabColorMode};
-use crate::tab_color::TabColor;
+use crate::tab_color::{self, TabColor};
 
 impl Workspace {
-    /// The color a tab's top line is drawn in, if any.
-    pub(super) fn tab_color(&self, buffer: &Buffer) -> Option<TabColor> {
-        buffer.color.clone().or_else(|| match self.settings.tab_color_mode {
-            TabColorMode::Manual => None,
-            TabColorMode::Language => TabColor::for_language(buffer.document.language().id),
-        })
-    }
-
-    pub(super) fn tab_hsla(&self, buffer: &Buffer, cx: &App) -> Option<Hsla> {
-        self.tab_color(buffer).map(|color| color.resolve(cx.theme()))
+    /// The color of the tab at `index`'s top line, if any. A color picked from
+    /// the tab menu always wins over the automatic mode.
+    pub(super) fn tab_hsla(&self, index: usize, buffer: &Buffer, cx: &App) -> Option<Hsla> {
+        let theme = cx.theme();
+        if let Some(color) = &buffer.color {
+            return Some(color.resolve(theme));
+        }
+        match self.settings.tab_color_mode {
+            TabColorMode::Theme => {
+                let cycle = tab_color::theme_cycle(theme);
+                cycle.get(index % cycle.len()).copied()
+            }
+            TabColorMode::Language => {
+                TabColor::for_language(buffer.document.language().id).map(|color| color.resolve(theme))
+            }
+            TabColorMode::Off => None,
+        }
     }
 
     pub(super) fn set_buffer_color(&mut self, id: BufferId, color: Option<TabColor>, cx: &mut Context<Self>) {

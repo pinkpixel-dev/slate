@@ -6,7 +6,6 @@ use gpui_kit::*;
 
 use super::Workspace;
 use super::buffer::BufferId;
-use crate::storage::TabColorMode;
 use crate::tab_color::TabColor;
 
 type MenuBuilder = Box<dyn Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu>;
@@ -20,7 +19,6 @@ impl Workspace {
             .iter()
             .find(|buffer| buffer.id == id)
             .and_then(|buffer| buffer.color.clone());
-        let by_language = self.settings.tab_color_mode == TabColorMode::Language;
         let many_tabs = self.buffers.len() > 1;
 
         Box::new(move |menu, window, cx| {
@@ -41,7 +39,7 @@ impl Workspace {
             )
             .separator()
             .submenu("Tab Color", window, cx, move |menu, _, _| {
-                color_menu(menu, colors.clone(), id, current.clone(), by_language)
+                color_menu(menu, colors.clone(), id, current.clone())
             })
         })
     }
@@ -67,10 +65,8 @@ impl Workspace {
 
     fn open_custom_color(&mut self, id: BufferId, window: &mut Window, cx: &mut Context<Self>) {
         let start = self
-            .buffers
-            .iter()
-            .find(|buffer| buffer.id == id)
-            .and_then(|buffer| self.tab_hsla(buffer, cx))
+            .index_of(id)
+            .and_then(|index| self.tab_hsla(index, &self.buffers[index], cx))
             .unwrap_or(cx.theme().primary);
         let picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(start));
         let this = cx.entity().downgrade();
@@ -123,11 +119,10 @@ fn color_menu(
     this: WeakEntity<Workspace>,
     id: BufferId,
     current: Option<TabColor>,
-    by_language: bool,
 ) -> PopupMenu {
     let none = this.clone();
     let mut menu = menu.item(
-        PopupMenuItem::new("None")
+        PopupMenuItem::new("Automatic")
             .checked(current.is_none())
             .on_click(move |_, _, cx| {
                 _ = none.update(cx, |workspace, cx| workspace.set_buffer_color(id, None, cx));
@@ -154,22 +149,12 @@ fn color_menu(
         );
     }
 
-    let custom = this.clone();
-    let mode = this;
+    let custom = this;
     menu.item(
         PopupMenuItem::new("Custom…")
             .checked(matches!(current, Some(TabColor::Custom(_))))
             .on_click(move |_, window, cx| {
                 _ = custom.update(cx, |workspace, cx| workspace.open_custom_color(id, window, cx));
-            }),
-    )
-    .separator()
-    .item(
-        PopupMenuItem::new("Color Tabs by Language")
-            .checked(by_language)
-            .on_click(move |_, _, cx| {
-                let next = if by_language { TabColorMode::Manual } else { TabColorMode::Language };
-                _ = mode.update(cx, |workspace, cx| workspace.set_tab_color_mode(next, cx));
             }),
     )
 }

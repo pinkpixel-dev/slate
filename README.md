@@ -11,7 +11,7 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 ## What works right now
 
 - Tabs: open as many files as you like, drag to reorder, middle-click to close
-- Color-coded tabs: right-click a tab and pick a color, and a thin line along its top makes it easy to find in a crowded row. Pick from presets that follow the theme, or any custom color. Colors are remembered per file, and there's an optional mode that colors tabs by language
+- Color-coded tabs: a thin colored line along the top of each tab makes it easy to find in a crowded row. By default, tabs cycle through the current theme's syntax colors, so they change with the theme. You can switch to coloring by language, or turn it off, in Settings. Right-click a tab to give it its own color (a preset or any custom color), which is remembered per file
 - Open and save files with your desktop's native file dialogs, or from the terminal with `slate notes.md todo.txt`
 - An Open Recent menu next to the Open button
 - A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, and it updates by itself when files change

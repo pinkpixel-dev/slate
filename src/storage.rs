@@ -28,11 +28,14 @@ pub struct Settings {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TabColorMode {
-    /// Only colors picked by hand.
+    /// Tabs cycle through the theme's syntax colors by position.
     #[default]
-    Manual,
-    /// Tabs are colored by language; a hand-picked color still wins.
+    Theme,
+    /// Each language gets its own preset color.
     Language,
+    /// No automatic colors. Older settings files call this "manual".
+    #[serde(alias = "manual")]
+    Off,
 }
 
 /// Things Slate remembers between runs, saved to `~/.local/state/slate/state.json`.
@@ -176,10 +179,13 @@ mod tests {
         let dir = temp_dir("partial");
         let storage = Storage::in_dir(&dir);
         write_atomic(&storage.settings_path(), r#"{"something_new": 1}"#).unwrap();
-        assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Manual);
+        assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Theme);
 
         write_atomic(&storage.settings_path(), r#"{"tab_color_mode": "language"}"#).unwrap();
         assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Language);
+
+        write_atomic(&storage.settings_path(), r#"{"tab_color_mode": "manual"}"#).unwrap();
+        assert_eq!(storage.load_settings().tab_color_mode, TabColorMode::Off);
     }
 
     #[test]

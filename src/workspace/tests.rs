@@ -8,7 +8,7 @@ use gpui_kit::{
 };
 
 use super::Workspace;
-use crate::storage::Storage;
+use crate::storage::{Storage, TabColorMode};
 use crate::tab_color::TabColor;
 
 /// A fresh folder for one test's settings, state, and files.
@@ -329,4 +329,103 @@ fn ctrl_comma_opens_settings_and_escape_closes_them(cx: &mut TestAppContext) {
     assert!(has_sheet(cx));
     press(cx, handle, "escape");
     assert!(!has_sheet(cx));
+}
+
+fn settle(cx: &mut TestAppContext, handle: AnyWindowHandle) {
+    for _ in 0..10 {
+        cx.executor().advance_clock(std::time::Duration::from_millis(50));
+        cx.update_window(handle, |_, window, cx| window.render_frame(cx)).unwrap();
+    }
+}
+
+#[gpui_kit::test]
+fn with_a_font_list_open_the_first_x_click_closes_the_list(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("sheet-close"));
+    let has_sheet = |cx: &mut TestAppContext| {
+        cx.update_window(handle, |_, window, cx| window.has_active_sheet(cx))
+            .unwrap()
+    };
+    // The open list has its own "close" button, so aim at the sheet's header.
+    let click_sheet_x = |cx: &mut TestAppContext| {
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.within("sheet-content").click("close", cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    };
+
+    click(cx, handle, "settings");
+    settle(cx, handle);
+    cx.update_window(handle, |_, window, cx| {
+        let picker = workspace.read(cx).font_pickers.as_ref().unwrap().editor.clone();
+        picker.update(cx, |picker, cx| picker.focus(window, cx));
+    })
+    .unwrap();
+    press(cx, handle, "enter");
+    settle(cx, handle);
+
+    // Kit's Select swallows the mouse-down that closes its list.
+    click_sheet_x(cx);
+    assert!(has_sheet(cx));
+    settle(cx, handle);
+    click_sheet_x(cx);
+    assert!(!has_sheet(cx));
+}
+
+#[gpui_kit::test]
+fn switching_themes_changes_syntax_and_palette_colors(cx: &mut TestAppContext) {
+    let (_, workspace) = open_workspace(cx, &test_dir("theme-colors"));
+    let snapshot = |cx: &mut TestAppContext| {
+        cx.update(|cx| {
+            let theme = Theme::global(cx);
+            let keyword = theme.highlight_theme.style("keyword").and_then(|style| style.color);
+            (theme.highlight_theme.name.clone(), keyword, theme.red)
+        })
+    };
+
+    let slate = snapshot(cx);
+    cx.update(|cx| {
+        workspace.update(cx, |workspace, cx| {
+            workspace.update_appearance(cx, |settings| settings.theme = Some("Gruvbox Dark".into()))
+        })
+    });
+    let gruvbox = snapshot(cx);
+
+    assert_eq!(gruvbox.0, "Gruvbox Dark");
+    assert_ne!(slate.1, gruvbox.1);
+    assert_ne!(slate.2, gruvbox.2);
+}
+
+#[gpui_kit::test]
+fn tab_colors_follow_the_mode_and_a_picked_color_wins(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("tab-modes"));
+    press(cx, handle, "ctrl-n");
+    press(cx, handle, "ctrl-n");
+    let colors = |cx: &mut TestAppContext| {
+        cx.update(|cx| {
+            let workspace = workspace.read(cx);
+            (0..workspace.buffers.len())
+                .map(|ix| workspace.tab_hsla(ix, &workspace.buffers[ix], cx))
+                .collect::<Vec<_>>()
+        })
+    };
+
+    // Theme mode is the default: every tab gets a different syntax color.
+    let themed = colors(cx);
+    assert!(themed.iter().all(Option::is_some));
+    assert_ne!(themed[0], themed[1]);
+    assert_ne!(themed[1], themed[2]);
+
+    cx.update(|cx| {
+        workspace.update(cx, |workspace, cx| {
+            workspace.set_tab_color_mode(TabColorMode::Off, cx);
+            let id = workspace.buffers[1].id;
+            workspace.set_buffer_color(id, Some(TabColor::Teal), cx);
+        })
+    });
+    let off = colors(cx);
+    assert_eq!(off[0], None);
+    assert!(off[1].is_some());
+    assert_eq!(off[2], None);
 }

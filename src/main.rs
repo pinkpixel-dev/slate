@@ -1,25 +1,48 @@
 mod assets;
 mod document;
+mod file_index;
 mod file_tree;
 mod language;
+mod line_ops;
 mod minimap;
 mod session;
 mod sidebar;
+mod single_instance;
 mod storage;
 mod tab_color;
+mod text_format;
 mod theme;
 mod workspace;
 
+use std::path::PathBuf;
+
+use futures::StreamExt as _;
 use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
+use crate::single_instance::Claim;
 use crate::storage::Storage;
 use crate::workspace::Workspace;
 
 const APP_ID: &str = "dev.pinkpixel.Slate";
 
 fn main() {
-    let file_args: Vec<std::path::PathBuf> = std::env::args_os().skip(1).map(Into::into).collect();
+    // Absolute, because a running Slate may get them and its folder isn't ours.
+    let file_args: Vec<PathBuf> = std::env::args_os()
+        .skip(1)
+        .map(PathBuf::from)
+        .map(|path| std::path::absolute(&path).unwrap_or(path))
+        .collect();
+
+    // A Slate that's already running opens the files (or just comes forward) instead.
+    let mut incoming = match single_instance::claim(&single_instance::socket_path(), &file_args) {
+        Ok(Claim::Forwarded) => return,
+        Ok(Claim::Primary(incoming)) => Some(incoming),
+        Err(err) => {
+            eprintln!("slate: can't share one window between launches: {err}");
+            None
+        }
+    };
 
     let storage = Storage::from_env();
 
@@ -63,6 +86,25 @@ fn main() {
                 }
             });
         });
+
+        if let Some(mut incoming) = incoming.take() {
+            cx.spawn(async move |cx| {
+                while let Some(paths) = incoming.next().await {
+                    let opened = window.update(cx, |_, window, cx| {
+                        workspace.update(cx, |workspace, cx| {
+                            for path in paths {
+                                workspace.open_path(path, true, window, cx);
+                            }
+                        });
+                        window.activate_window();
+                    });
+                    if opened.is_err() {
+                        break;
+                    }
+                }
+            })
+            .detach();
+        }
         cx.activate(true);
     });
 }

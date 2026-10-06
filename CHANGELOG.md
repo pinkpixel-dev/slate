@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.7.0 - October 6, 2026
+
+### ✏️ Editing
+
+- `Ctrl+Shift+D` duplicates the current line (or every selected line), and `Alt+Up` / `Alt+Down` move lines up and down. Each one is a single undo step
+- `Ctrl+/` comments or uncomments the selected lines with the right syntax for the language. HTML, CSS, and Markdown wrap each line in a block comment instead
+- `Ctrl+G` jumps to a line, or to `line:column`
+
+### 🔎 Quick Open
+
+- `Ctrl+P` fuzzy-finds a file in the sidebar folder, or in the current file's folder when the sidebar has none. Hidden files and folders follow the sidebar's setting, and `.git` is always skipped
+
+### 🔠 Zoom
+
+- `Ctrl+=` and `Ctrl+-` zoom the editor text, and `Ctrl+0` resets it. Zoom isn't saved, so Slate always starts at the font size from Settings
+
+### 📏 Indentation and Line Endings
+
+- Slate guesses each file's indentation (tabs or spaces, and the width) when it opens, and the Tab key follows it
+- CRLF files are detected and saved back as CRLF
+- Both show in the status bar. Click them to switch between spaces and tabs, pick a width, or change the line endings
+
+### 🪟 Single Instance
+
+- Running `slate notes.txt` while Slate is open now opens a tab in the existing window instead of starting a second copy. A plain `slate` brings the window forward. This also stops two windows from overwriting each other's saved session
+
+### ♿ Accessibility
+
+- Icon-only buttons now have names for screen readers, and tabs announce themselves as tabs, with their unsaved state
+
+### 📦 Packaging
+
+- A desktop entry and app icon, so Slate shows up in app launchers and can be picked in "Open With"
+- An AUR package, `slate-editor`
+
+### 🧭 Command Palette
+
+- New commands for everything above, in new Edit and Go groups
+
 ## 0.6.0 - October 5, 2026
 
 ### 🔍 Find and Replace

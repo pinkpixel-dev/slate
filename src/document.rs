@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::language::{self, Language};
+use crate::text_format::{self, LineEnding};
 
 /// The file behind the editor: where it lives, what language it is, and whether
 /// it has unsaved edits.
@@ -17,6 +18,8 @@ pub struct Document {
     saved_revision: u64,
     /// The file's modified time when it was last read or saved.
     disk_modified: Option<SystemTime>,
+    /// The line ending Save writes. The editor itself only holds `\n`.
+    line_ending: LineEnding,
 }
 
 impl Document {
@@ -28,6 +31,7 @@ impl Document {
             revision: 0,
             saved_revision: 0,
             disk_modified: None,
+            line_ending: LineEnding::default(),
         }
     }
 
@@ -39,6 +43,7 @@ impl Document {
             revision: 0,
             saved_revision: 0,
             disk_modified: None,
+            line_ending: LineEnding::default(),
         }
     }
 
@@ -92,6 +97,14 @@ impl Document {
         self.disk_modified = modified;
     }
 
+    pub fn line_ending(&self) -> LineEnding {
+        self.line_ending
+    }
+
+    pub fn set_line_ending(&mut self, line_ending: LineEnding) {
+        self.line_ending = line_ending;
+    }
+
     pub fn mark_edited(&mut self) {
         self.revision += 1;
     }
@@ -121,13 +134,32 @@ pub fn read_text(path: &Path) -> io::Result<String> {
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "isn't valid UTF-8 text"))
 }
 
+/// A file as read from disk, ready for the editor.
+pub struct Loaded {
+    /// The text with `\r\n` turned into `\n`.
+    pub text: String,
+    pub line_ending: LineEnding,
+    pub modified: Option<SystemTime>,
+}
+
+/// Reads a file for the editor: checks it's text, notes its line ending, and normalizes it.
+pub fn load(path: &Path) -> io::Result<Loaded> {
+    let text = read_text(path)?;
+    Ok(Loaded {
+        line_ending: LineEnding::detect(&text),
+        text: text_format::normalize(text),
+        modified: modified(path),
+    })
+}
+
 /// A file's modified time, or `None` if it's missing or the filesystem doesn't say.
 pub fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|meta| meta.modified()).ok()
 }
 
-pub fn write_text(path: &Path, text: &str) -> io::Result<()> {
-    std::fs::write(path, text)
+/// Writes editor text with the document's line ending.
+pub fn write_text(path: &Path, text: &str, line_ending: LineEnding) -> io::Result<()> {
+    std::fs::write(path, line_ending.apply(text).as_bytes())
 }
 
 #[cfg(test)]
@@ -152,6 +184,17 @@ mod tests {
 
         let latin1 = temp_file("latin1.txt", &[0x63, 0x61, 0x66, 0xe9]);
         assert_eq!(read_text(&latin1).unwrap_err().kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn crlf_files_load_normalized_and_save_as_crlf() {
+        let path = temp_file("crlf.txt", b"a\r\nb\r\n");
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.text, "a\nb\n");
+        assert_eq!(loaded.line_ending, LineEnding::Crlf);
+
+        write_text(&path, "a\nb\nc\n", loaded.line_ending).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"a\r\nb\r\nc\r\n");
     }
 
     #[test]

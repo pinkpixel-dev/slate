@@ -1,6 +1,5 @@
 use std::io;
 use std::path::PathBuf;
-use std::time::SystemTime;
 
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::notification::Notification;
@@ -8,7 +7,7 @@ use gpui_kit::*;
 
 use super::buffer::BufferId;
 use super::{Open, PendingAction, Save, SaveAs, Workspace};
-use crate::document::{self, Document};
+use crate::document::{self, Document, Loaded};
 
 impl Workspace {
     pub(super) fn open(&mut self, _: &Open, window: &mut Window, cx: &mut Context<Self>) {
@@ -52,15 +51,20 @@ impl Workspace {
 
         let read = cx.background_spawn({
             let path = path.clone();
-            async move { document::read_text(&path).map(|text| (text, document::modified(&path))) }
+            async move { document::load(&path) }
         });
 
         cx.spawn_in(window, async move |this, cx| {
             let result = read.await;
             _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok((text, modified)) => workspace.show_file(path, text, modified, window, cx),
+                Ok(loaded) => workspace.show_file(path, loaded, window, cx),
                 Err(err) if missing_ok && err.kind() == io::ErrorKind::NotFound => {
-                    workspace.show_file(path, String::new(), None, window, cx)
+                    let empty = Loaded {
+                        text: String::new(),
+                        line_ending: Default::default(),
+                        modified: None,
+                    };
+                    workspace.show_file(path, empty, window, cx)
                 }
                 Err(err) => notify_error(format!("Couldn't open {}: {err}", path.display()), window, cx),
             });
@@ -79,14 +83,12 @@ impl Workspace {
         open.is_some()
     }
 
-    fn show_file(
-        &mut self,
-        path: PathBuf,
-        text: String,
-        modified: Option<SystemTime>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn show_file(&mut self, path: PathBuf, loaded: Loaded, window: &mut Window, cx: &mut Context<Self>) {
+        let Loaded {
+            text,
+            line_ending,
+            modified,
+        } = loaded;
         // Two opens of the same file can race; the second one just switches to it.
         if self.focus_open_path(&path, window, cx) {
             return;
@@ -94,12 +96,14 @@ impl Workspace {
         let color = self.state.tab_colors.get(&path).cloned();
         let mut document = Document::from_path(path);
         document.set_disk_modified(modified);
+        document.set_line_ending(line_ending);
 
         if self.active_buffer().is_pristine(cx) {
             let language = document.language().id;
             let buffer = &mut self.buffers[self.active];
             buffer.document = document;
             buffer.color = color;
+            buffer.detect_indent(&text, cx);
             buffer.editor.update(cx, |state, cx| {
                 state.set_highlighter(language, cx);
                 state.set_value(text, window, cx);
@@ -185,10 +189,11 @@ impl Workspace {
         let buffer = &mut self.buffers[index];
         buffer.saves_in_flight += 1;
         let revision = buffer.document.revision();
+        let line_ending = buffer.document.line_ending();
         let text = buffer.editor.read(cx).value();
         let write = cx.background_spawn({
             let path = path.clone();
-            async move { document::write_text(&path, &text).map(|()| document::modified(&path)) }
+            async move { document::write_text(&path, &text, line_ending).map(|()| document::modified(&path)) }
         });
 
         cx.spawn_in(window, async move |this, cx| {

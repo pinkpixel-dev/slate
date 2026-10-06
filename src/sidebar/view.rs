@@ -46,6 +46,7 @@ impl Sidebar {
                     .ghost()
                     .xsmall()
                     .icon(icon)
+                    .accessibility_label(tooltip)
                     .tooltip(tooltip)
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_hidden(cx))),
             )
@@ -54,6 +55,7 @@ impl Sidebar {
                     .ghost()
                     .xsmall()
                     .icon(IconName::Close)
+                    .accessibility_label("Close Folder")
                     .tooltip("Close Folder")
                     .on_click(cx.listener(|this, _, _, cx| this.close_folder(cx))),
             )

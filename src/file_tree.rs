@@ -18,8 +18,14 @@ pub struct Node {
 
 impl Node {
     fn is_hidden(&self) -> bool {
-        self.name.starts_with('.') || (self.is_dir && HIDDEN_NAMES.contains(&self.name.as_str()))
+        is_hidden_name(&self.name, self.is_dir)
     }
+}
+
+/// Dotfiles, plus folders like `node_modules`, which stay out of sight unless
+/// "show hidden files" is on.
+pub fn is_hidden_name(name: &str, is_dir: bool) -> bool {
+    name.starts_with('.') || (is_dir && HIDDEN_NAMES.contains(&name))
 }
 
 /// What a tree row id stands for.

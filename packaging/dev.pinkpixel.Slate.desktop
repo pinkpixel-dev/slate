@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Slate
+GenericName=Text Editor
+Comment=Edit text and code
+Exec=slate %F
+Icon=dev.pinkpixel.Slate
+Terminal=false
+StartupNotify=true
+StartupWMClass=dev.pinkpixel.Slate
+Categories=Utility;TextEditor;
+Keywords=text;editor;code;notes;markdown;
+MimeType=text/plain;text/markdown;text/x-csrc;text/x-chdr;text/x-c++src;text/x-c++hdr;text/x-python;text/x-rust;text/x-go;text/x-java;text/x-lua;text/x-sql;text/x-makefile;text/x-diff;text/x-patch;text/css;text/html;text/javascript;application/json;application/toml;application/x-yaml;application/x-shellscript;application/x-php;application/x-ruby;

@@ -11,7 +11,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::{
-    KEY_CONTEXT, NewFile, TogglePreview, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, ToggleWordWrap,
+    KEY_CONTEXT, NewFile, TogglePreview, Open, OpenSettings, Save, ToggleSidebar, ToggleWhitespace, ToggleWordWrap,
     Workspace,
 };
 use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
@@ -46,6 +46,7 @@ impl Workspace {
                             .small()
                             .icon(IconName::PanelLeft)
                             .selected(self.sidebar_open)
+                            .accessibility_label("Toggle Sidebar")
                             .tooltip_with_action("Toggle Sidebar", &ToggleSidebar, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleSidebar), cx)),
                     )
@@ -54,6 +55,7 @@ impl Workspace {
                             .ghost()
                             .small()
                             .icon(Icon::new(CatalogIcon::FilePlus))
+                            .accessibility_label("New File")
                             .tooltip_with_action("New File", &NewFile, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(NewFile), cx)),
                     )
@@ -62,6 +64,7 @@ impl Workspace {
                             .ghost()
                             .small()
                             .icon(Icon::new(CatalogIcon::FolderOpen))
+                            .accessibility_label("Open")
                             .tooltip_with_action("Open", &Open, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(Open), cx)),
                     )
@@ -71,6 +74,7 @@ impl Workspace {
                             .ghost()
                             .small()
                             .icon(Icon::new(CatalogIcon::Save))
+                            .accessibility_label("Save")
                             .tooltip_with_action("Save", &Save, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(Save), cx)),
                     )
@@ -80,6 +84,7 @@ impl Workspace {
                             .ghost()
                             .small()
                             .icon(IconName::Settings)
+                            .accessibility_label("Settings")
                             .tooltip_with_action("Settings", &OpenSettings, Some(KEY_CONTEXT))
                             .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenSettings), cx)),
                     )
@@ -105,6 +110,7 @@ impl Workspace {
             .ghost()
             .xsmall()
             .icon(IconName::ChevronDown)
+            .accessibility_label("Open Recent")
             .tooltip("Open Recent")
             .dropdown_menu(move |mut menu, _, _| {
                 if recent.is_empty() {
@@ -155,6 +161,7 @@ impl Workspace {
             .ghost()
             .small()
             .icon(IconName::Palette)
+            .accessibility_label("Theme")
             .tooltip("Theme")
             .dropdown_menu(move |mut menu, _, _| {
                 for name in &themes {
@@ -175,7 +182,7 @@ impl Workspace {
             })
     }
 
-    pub(super) fn render_status_bar(&self, cx: &App) -> impl IntoElement {
+    pub(super) fn render_status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let buffer = self.active_buffer();
         let position = buffer.editor.read(cx).cursor_position();
         let cursor = format!("Ln {}, Col {}", position.line + 1, position.character + 1);
@@ -190,6 +197,7 @@ impl Workspace {
                         .xsmall()
                         .icon(IconName::BookOpen)
                         .selected(buffer.preview.is_some())
+                        .accessibility_label("Markdown Preview")
                         .tooltip_with_action("Markdown Preview", &TogglePreview, Some(KEY_CONTEXT))
                         .on_click(|_, window, cx| window.dispatch_action(Box::new(TogglePreview), cx)),
                 )
@@ -200,6 +208,7 @@ impl Workspace {
                     .xsmall()
                     .icon(Icon::new(CatalogIcon::TextWrap))
                     .selected(self.settings.word_wrap)
+                    .accessibility_label("Word Wrap")
                     .tooltip_with_action("Word Wrap", &ToggleWordWrap, Some(KEY_CONTEXT))
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleWordWrap), cx)),
             )
@@ -209,11 +218,13 @@ impl Workspace {
                     .xsmall()
                     .icon(Icon::new(CatalogIcon::Pilcrow))
                     .selected(self.show_whitespace)
+                    .accessibility_label("Show Whitespace")
                     .tooltip("Show Whitespace")
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleWhitespace), cx)),
             )
             .right(cursor)
-            .right(format!("Spaces: {TAB_SIZE}"))
+            .right(self.render_indent_button(cx))
+            .right(self.render_line_ending_button(cx))
             .right("UTF-8")
     }
 }

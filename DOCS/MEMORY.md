@@ -134,3 +134,37 @@ What was decided: The minimap is a GPUI `canvas` next to the editor (`src/worksp
 Why: Kit 0.7.1's editor has no minimap, and it doesn't expose its syntax highlights or how buffer lines map to wrapped or folded rows. A second highlighter is the only public way to get the colors. Without the row mapping, the viewport box is only exact when one line is one row, and the user chose to hide the minimap with wrap on rather than show a box that drifts (2026-10-05).
 
 Rejected: Drawing tiny real text (shaping text at about 2px is costly and comes out as mush), showing an approximate minimap with wrap on (the box and click-to-jump drift on wrapped files), and a single-color minimap (cheaper, but the user wanted the VS Code look).
+
+## 2026-10-06
+
+### Decision: The editor only holds `\n`; line endings are converted at load and save
+
+What was decided: `document::load` records each file's `LineEnding` on its `Document` and turns `\r\n` into `\n` before the text reaches Kit's editor. `write_text` converts back on save. Session tabs store the line ending so stashed edits to a CRLF file stay CRLF.
+
+Why: Kit's Rope helpers count lines with Ropey's `LineType::LF`, so a `\r` left in the buffer would ride along at the end of every line and leak into the minimap, the line commands, and the find bar. Converting at the edges keeps everything inside Slate simple, and the status bar can switch the ending without touching the text.
+
+Rejected: Loading CRLF text as-is (every line ends in a stray `\r`), and converting the whole buffer when the user picks a new ending (an extra undo step for something that only matters on disk).
+
+### Decision: Single instance over a Unix socket in `$XDG_RUNTIME_DIR`
+
+What was decided: The first Slate binds `slate.sock` and listens on a thread. Later launches connect, send their absolute paths separated by NUL, and exit. A stale socket (connect fails) is removed and bound again. A bare `slate` sends nothing and just brings the window forward. Agreed with the user on 2026-10-05.
+
+Why: It's the smallest thing that works with no new dependencies, and it fixes two windows overwriting each other's `session.json`.
+
+Rejected: D-Bus activation (a new dependency and a service file for something a socket does fine), and a lock file (it can stop a second launch, but it can't hand the files over).
+
+### Decision: Zoom is per run, not saved
+
+What was decided: `Ctrl+=` / `Ctrl+-` change `Settings::editor_zoom`, which is `#[serde(skip)]`. `theme::apply` adds it to the editor font size and clamps to 6 to 48. `Ctrl+0` sets it back to 0.
+
+Why: The editor font size in Settings is the lasting choice. Zoom is for a moment (a presentation, a dense file), and saving it would quietly change the size the user picked.
+
+Rejected: Writing zoom into `editor_font_size` (`Ctrl+0` would then have nothing to reset to), and a separate saved zoom setting (two numbers that both mean "font size").
+
+### Decision: Ship on the AUR as `slate-editor`, skip AppImage for now
+
+What was decided: `packaging/aur/PKGBUILD` builds from the GitHub tag tarball, installs the binary, the desktop entry, and the 512px icon, and conflicts with `slate`, `slate-git`, and `slate-bin`. The user chose AUR only on 2026-10-05.
+
+Why: The user is on CachyOS, and the AUR is where Arch users look. The name `slate` belongs to a Qt pixel art editor that also installs `/usr/bin/slate`.
+
+Rejected: Renaming the binary to avoid the conflict (`slate` is what the user types), and AppImage (bundling Vulkan and Wayland libraries for a GPU-rendered app is fiddly, and nobody asked for it yet).

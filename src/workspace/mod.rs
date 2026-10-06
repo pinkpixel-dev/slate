@@ -1,13 +1,17 @@
 mod buffer;
 mod chrome;
 mod disk_watch;
+mod editing;
 mod files;
 mod find_bar;
 mod folders;
+mod format_menus;
+mod go_to_line;
 mod minimap;
 mod palette;
 mod preview;
 mod prefs;
+mod quick_open;
 mod session;
 mod settings_panel;
 mod tab_menu;
@@ -30,13 +34,15 @@ mod disk_tests;
 mod preview_tests;
 #[cfg(test)]
 mod minimap_tests;
+#[cfg(test)]
+mod editing_tests;
 
 use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
-use gpui_kit::component::input::Editor;
+use gpui_kit::component::input::{Editor, InputState};
 use gpui_kit::component::v_flex;
 use gpui_kit::*;
 
@@ -49,6 +55,7 @@ use disk_watch::FileWatcher;
 use find_bar::FindBar;
 use minimap::MinimapDrag;
 use preview::TogglePreview;
+use quick_open::QuickOpenState;
 use settings_panel::FontPickers;
 
 actions!(
@@ -73,7 +80,6 @@ actions!(
 );
 
 const KEY_CONTEXT: &str = "Workspace";
-const TAB_SIZE: usize = 4;
 
 pub fn init(cx: &mut App) {
     cx.bind_keys([
@@ -96,6 +102,9 @@ pub fn init(cx: &mut App) {
     palette::init(cx);
     preview::init(cx);
     minimap::init(cx);
+    editing::init(cx);
+    go_to_line::init(cx);
+    quick_open::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -122,6 +131,8 @@ pub struct Workspace {
     font_pickers: Option<FontPickers>,
     find: FindBar,
     palette: Entity<CommandState>,
+    go_to_line: Entity<InputState>,
+    quick_open: QuickOpenState,
     file_watcher: Option<FileWatcher>,
     /// Where the minimap was last painted, for its mouse handlers.
     minimap_bounds: Rc<Cell<Bounds<Pixels>>>,
@@ -153,6 +164,7 @@ impl Workspace {
         let mut subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
         let (find, find_subscriptions) = FindBar::new(window, cx);
         subscriptions.extend(find_subscriptions);
+        let go_to_line = go_to_line::new_input(window, cx);
 
         let mut workspace = Self {
             focus_handle: cx.focus_handle(),
@@ -170,6 +182,8 @@ impl Workspace {
             font_pickers: None,
             find,
             palette: cx.new(|cx| CommandState::new(window, cx)),
+            go_to_line,
+            quick_open: QuickOpenState::new(window, cx),
             // Tests drive `on_files_changed` directly: real inotify events would
             // wake GPUI's deterministic test scheduler from another thread.
             file_watcher: if cfg!(test) {
@@ -373,6 +387,15 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::toggle_command_palette))
             .on_action(cx.listener(Self::toggle_preview))
             .on_action(cx.listener(Self::toggle_minimap))
+            .on_action(cx.listener(Self::duplicate_line))
+            .on_action(cx.listener(Self::move_line_up))
+            .on_action(cx.listener(Self::move_line_down))
+            .on_action(cx.listener(Self::toggle_comment))
+            .on_action(cx.listener(Self::zoom_in))
+            .on_action(cx.listener(Self::zoom_out))
+            .on_action(cx.listener(Self::reset_zoom))
+            .on_action(cx.listener(Self::go_to_line))
+            .on_action(cx.listener(Self::quick_open))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

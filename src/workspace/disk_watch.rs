@@ -112,7 +112,7 @@ impl Workspace {
     fn check_disk(&mut self, id: BufferId, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         let read = cx.background_spawn({
             let path = path.clone();
-            async move { document::read_text(&path).map(|text| (text, document::modified(&path))) }
+            async move { document::load(&path) }
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = read.await;
@@ -127,7 +127,7 @@ impl Workspace {
         &mut self,
         id: BufferId,
         path: &Path,
-        result: io::Result<(String, Option<std::time::SystemTime>)>,
+        result: io::Result<document::Loaded>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -140,15 +140,23 @@ impl Workspace {
         }
         let name = buffer.document.display_name();
         match result {
-            Ok((text, modified)) => {
+            Ok(document::Loaded {
+                text,
+                line_ending,
+                modified,
+            }) => {
                 if modified == buffer.document.disk_modified() {
                     return;
                 }
                 let editor = buffer.editor.clone();
+                let dirty = buffer.document.is_dirty();
+                if !dirty {
+                    buffer.document.set_line_ending(line_ending);
+                }
                 if editor.read(cx).value() == text {
                     // Touched, or rewritten with the same text (often our own save).
                     buffer.document.set_disk_modified(modified);
-                } else if buffer.document.is_dirty() {
+                } else if dirty {
                     buffer.disk_conflict = true;
                 } else {
                     buffer.document.set_disk_modified(modified);
@@ -184,18 +192,23 @@ impl Workspace {
         };
         let read = cx.background_spawn({
             let path = path.clone();
-            async move { document::read_text(&path).map(|text| (text, document::modified(&path))) }
+            async move { document::load(&path) }
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = read.await;
             _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok((text, modified)) => {
+                Ok(document::Loaded {
+                    text,
+                    line_ending,
+                    modified,
+                }) => {
                     let Some(buffer) = workspace.buffer_mut(id) else {
                         return;
                     };
                     let revision = buffer.document.revision();
                     buffer.document.mark_saved(path, revision);
                     buffer.document.set_disk_modified(modified);
+                    buffer.document.set_line_ending(line_ending);
                     buffer.disk_conflict = false;
                     let editor = buffer.editor.clone();
                     reload_text(&editor, text, window, cx);

@@ -68,6 +68,7 @@ impl Workspace {
                 let buffer = &mut self.buffers[self.active];
                 buffer.document.mark_edited();
                 buffer.document.set_disk_modified(tab.disk_modified);
+                buffer.document.set_line_ending(tab.line_ending);
                 buffer.color = color;
                 // The file moved on while these edits were stashed: ask Reload / Keep Mine.
                 buffer.disk_conflict = path.is_some() && tab.disk_changed();
@@ -96,18 +97,20 @@ impl Workspace {
     fn reload_tab(&mut self, id: BufferId, path: PathBuf, cursor: usize, window: &mut Window, cx: &mut Context<Self>) {
         let read = cx.background_spawn({
             let path = path.clone();
-            async move { document::read_text(&path).map(|text| (text, document::modified(&path))) }
+            async move { document::load(&path) }
         });
         cx.spawn_in(window, async move |this, cx| {
             let result = read.await;
             _ = this.update_in(cx, |workspace, window, cx| match result {
-                Ok((text, modified)) => {
+                Ok(loaded) => {
                     let Some(buffer) = workspace.buffer_mut(id) else {
                         return;
                     };
-                    buffer.document.set_disk_modified(modified);
+                    buffer.document.set_disk_modified(loaded.modified);
+                    buffer.document.set_line_ending(loaded.line_ending);
+                    buffer.detect_indent(&loaded.text, cx);
                     let editor = buffer.editor.clone();
-                    editor.update(cx, |state, cx| state.set_value(text, window, cx));
+                    editor.update(cx, |state, cx| state.set_value(loaded.text, window, cx));
                     workspace.restore_cursor(id, cursor, cx);
                     workspace.text_changed(id, cx);
                 }
@@ -149,6 +152,7 @@ impl Workspace {
                 disk_modified: buffer.document.disk_modified(),
                 color: buffer.color.clone(),
                 cursor: editor.selected_range().start,
+                line_ending: buffer.document.line_ending(),
                 preview: buffer.preview.is_some(),
                 path,
             });

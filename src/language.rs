@@ -9,11 +9,34 @@ pub struct Language {
     pub label: &'static str,
 }
 
+/// How a language comments out a line, for Toggle Comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Comment {
+    /// A prefix like `//` or `#`.
+    Line(&'static str),
+    /// Languages without line comments wrap each line, like `<!-- line -->`.
+    Block(&'static str, &'static str),
+}
+
 impl Language {
     pub const PLAIN: Language = Language::new("text", "Plain Text");
 
     const fn new(id: &'static str, label: &'static str) -> Self {
         Self { id, label }
+    }
+
+    /// `None` for formats with no comments at all, like plain text and JSON.
+    pub fn comment(&self) -> Option<Comment> {
+        Some(match self.id {
+            "bash" | "make" | "python" | "ruby" | "toml" | "yaml" => Comment::Line("#"),
+            "c" | "cpp" | "go" | "java" | "javascript" | "php" | "rust" | "tsx" | "typescript" | "zig" => {
+                Comment::Line("//")
+            }
+            "lua" | "sql" => Comment::Line("--"),
+            "css" => Comment::Block("/*", "*/"),
+            "html" | "markdown" => Comment::Block("<!--", "-->"),
+            _ => return None,
+        })
     }
 }
 
@@ -115,6 +138,16 @@ mod tests {
         assert_eq!(detect(Path::new("/home/me/.bashrc")), BASH);
         assert_eq!(detect(Path::new("Makefile")), MAKE);
         assert_eq!(detect(Path::new("Cargo.lock")), TOML);
+    }
+
+    #[test]
+    fn comment_styles() {
+        assert_eq!(RUST.comment(), Some(Comment::Line("//")));
+        assert_eq!(PYTHON.comment(), Some(Comment::Line("#")));
+        assert_eq!(SQL.comment(), Some(Comment::Line("--")));
+        assert_eq!(HTML.comment(), Some(Comment::Block("<!--", "-->")));
+        assert_eq!(JSON.comment(), None);
+        assert_eq!(Language::PLAIN.comment(), None);
     }
 
     #[test]

@@ -60,6 +60,8 @@ impl Workspace {
 
         h_flex()
             .id("tab-strip")
+            .role(Role::TabList)
+            .aria_label("Open files")
             .flex_shrink_0()
             .w_full()
             .h(px(TAB_HEIGHT))
@@ -100,6 +102,9 @@ impl Workspace {
 
         div()
             .id(("tab", id.0))
+            .role(Role::Tab)
+            .aria_label(if dirty { format!("{label}, unsaved") } else { label.to_string() })
+            .aria_selected(selected)
             .group(group.clone())
             .relative()
             .flex_shrink_0()
@@ -180,6 +185,8 @@ impl Workspace {
             .child(
                 div()
                     .id(("tab-close", id.0))
+                    .role(Role::Button)
+                    .aria_label("Close tab")
                     .absolute()
                     .inset_0()
                     .flex()

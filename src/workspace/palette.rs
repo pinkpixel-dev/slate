@@ -5,8 +5,11 @@ use gpui_kit::component::{ActiveTheme as _, Icon, IconName, IndexPath, Sizable a
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use super::editing::{DuplicateLine, MoveLineDown, MoveLineUp, ResetZoom, ToggleComment, ZoomIn, ZoomOut};
+use super::go_to_line::GoToLine;
 use super::minimap::ToggleMinimap;
 use super::preview::TogglePreview;
+use super::quick_open::QuickOpen;
 use super::{
     CloseTab, FindNext, FindPrevious, KEY_CONTEXT, NewFile, NextTab, Open, OpenFolder, OpenSettings, PreviousTab,
     Quit, Save, SaveAs, ToggleSidebar, ToggleWhitespace, ToggleWordWrap, Workspace,
@@ -69,6 +72,22 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
         ],
     ),
     (
+        "Edit",
+        &[
+            command("Duplicate Line", || Box::new(DuplicateLine)).keywords(&["copy"]),
+            command("Move Line Up", || Box::new(MoveLineUp)),
+            command("Move Line Down", || Box::new(MoveLineDown)),
+            command("Toggle Comment", || Box::new(ToggleComment)).keywords(&["uncomment"]),
+        ],
+    ),
+    (
+        "Go",
+        &[
+            command("Quick Open...", || Box::new(QuickOpen)).keywords(&["file", "fuzzy", "find file"]),
+            command("Go to Line...", || Box::new(GoToLine)).keywords(&["jump", "line number"]),
+        ],
+    ),
+    (
         "Find",
         &[
             command("Find", || Box::new(Search)).keywords(&["search"]),
@@ -88,6 +107,9 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             toggle("Toggle Markdown Preview", || Box::new(TogglePreview), |ws| {
                 ws.active_buffer().preview.is_some()
             }),
+            command("Zoom In", || Box::new(ZoomIn)).keywords(&["font", "bigger"]),
+            command("Zoom Out", || Box::new(ZoomOut)).keywords(&["font", "smaller"]),
+            command("Reset Zoom", || Box::new(ResetZoom)).keywords(&["font"]),
             command("Next Tab", || Box::new(NextTab)),
             command("Previous Tab", || Box::new(PreviousTab)),
         ],

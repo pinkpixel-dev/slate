@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 
 use crate::tab_color::TabColor;
+use crate::text_format::LineEnding;
 
 /// The open tabs and sidebar folder, saved to `~/.local/state/slate/session.json`
 /// so the next launch without arguments picks up where this one stopped.
@@ -34,6 +35,8 @@ pub struct SessionTab {
     pub cursor: usize,
     /// The Markdown preview was open.
     pub preview: bool,
+    /// What Save writes, kept so stashed edits to a CRLF file stay CRLF.
+    pub line_ending: LineEnding,
 }
 
 impl SessionTab {
@@ -65,6 +68,7 @@ mod tests {
                     path: Some("/tmp/notes.md".into()),
                     disk_modified: Some(SystemTime::UNIX_EPOCH),
                     text: Some("edited".into()),
+                    line_ending: LineEnding::Crlf,
                     ..SessionTab::default()
                 },
             ],

@@ -30,6 +30,10 @@ pub struct Settings {
     pub ui_font_size: Option<f32>,
     pub editor_font: Option<String>,
     pub editor_font_size: Option<f32>,
+    /// Ctrl+= / Ctrl+- steps added to the editor font size. Never saved, so
+    /// each launch starts at the real size.
+    #[serde(skip)]
+    pub editor_zoom: f32,
 }
 
 impl Default for Settings {
@@ -45,6 +49,7 @@ impl Default for Settings {
             ui_font_size: None,
             editor_font: None,
             editor_font_size: None,
+            editor_zoom: 0.,
         }
     }
 }
@@ -233,6 +238,15 @@ mod tests {
         };
         write_atomic(&storage.settings_path(), &to_json(&settings)).unwrap();
         assert_eq!(storage.load_settings(), settings);
+    }
+
+    #[test]
+    fn zoom_is_never_saved() {
+        let settings = Settings {
+            editor_zoom: 3.,
+            ..Settings::default()
+        };
+        assert!(!to_json(&settings).contains("zoom"));
     }
 
     #[test]

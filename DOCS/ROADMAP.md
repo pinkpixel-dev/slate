@@ -49,7 +49,7 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Command palette (`Ctrl+Shift+P`)
 - Notice when an open file changes on disk: reload clean tabs quietly, and ask before replacing unsaved edits
 
-## Phase 6: Polish and packaging
+## Phase 6: Polish and packaging ✅
 
 - Go to Line (`Ctrl+G`)
 - Zoom the editor font with `Ctrl+=`, `Ctrl+-`, and `Ctrl+0`
@@ -58,6 +58,6 @@ Slate is meant to stay small: a pleasant, fast editor for quick edits, not an ID
 - Line editing shortcuts: duplicate line, move line up and down, and toggle comment (`Ctrl+/`), for whichever of these Kit doesn't already do
 - Quick Open (`Ctrl+P`): fuzzy-find a file in the sidebar folder
 - Keyboard shortcut pass, accessibility labels, and tooltips
-- Startup time check
+- Startup time check (about half a second warm, nearly all of it GPUI's GPU and window setup)
 - `.desktop` file and app icon
-- Packaging (AppImage and/or an AUR package)
+- Packaging: an AUR package, `slate-editor` (AppImage dropped for now)

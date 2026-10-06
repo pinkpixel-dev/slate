@@ -280,6 +280,7 @@ impl Workspace {
                             .ghost()
                             .xsmall()
                             .icon(if replace_mode { IconName::ChevronDown } else { IconName::ChevronRight })
+                            .accessibility_label("Toggle Replace")
                             .tooltip_with_action("Toggle Replace", &Replace, Some(KEY_CONTEXT))
                             .on_click(cx.listener(|this, _, window, cx| this.toggle_replace_mode(window, cx))),
                     )
@@ -295,6 +296,7 @@ impl Workspace {
                                         .compact()
                                         .icon(IconName::CaseSensitive)
                                         .selected(self.find.case_sensitive)
+                                        .accessibility_label("Match Case")
                                         .tooltip_with_action("Match Case", &ToggleCaseSensitive, Some(FIND_CONTEXT))
                                         .on_click(cx.listener(|this, _, window, cx| {
                                             this.toggle_case_sensitive(&ToggleCaseSensitive, window, cx)
@@ -318,6 +320,7 @@ impl Workspace {
                             .xsmall()
                             .icon(IconName::ArrowUp)
                             .disabled(!has_matches)
+                            .accessibility_label("Previous Match")
                             .tooltip_with_action("Previous Match", &FindPrevious, Some(KEY_CONTEXT))
                             .on_click(cx.listener(|this, _, window, cx| this.step_match(false, window, cx))),
                     )
@@ -327,6 +330,7 @@ impl Workspace {
                             .xsmall()
                             .icon(IconName::ArrowDown)
                             .disabled(!has_matches)
+                            .accessibility_label("Next Match")
                             .tooltip_with_action("Next Match", &FindNext, Some(KEY_CONTEXT))
                             .on_click(cx.listener(|this, _, window, cx| this.step_match(true, window, cx))),
                     )
@@ -336,6 +340,7 @@ impl Workspace {
                             .ghost()
                             .xsmall()
                             .icon(IconName::Close)
+                            .accessibility_label("Close Find")
                             .tooltip("Close (Escape)")
                             .on_click(cx.listener(|this, _, window, cx| this.close_find(window, cx))),
                     ),
@@ -360,6 +365,7 @@ impl Workspace {
                                 .xsmall()
                                 .icon(IconName::Replace)
                                 .disabled(!has_matches)
+                                .accessibility_label("Replace")
                                 .tooltip("Replace (Enter)")
                                 .on_click(cx.listener(|this, _, window, cx| {
                                     this.replace_next(&ReplaceNext, window, cx)
@@ -371,6 +377,7 @@ impl Workspace {
                                 .xsmall()
                                 .icon(Icon::new(CatalogIcon::ReplaceAll))
                                 .disabled(!has_matches)
+                                .accessibility_label("Replace All")
                                 .tooltip_with_action("Replace All", &ReplaceAll, Some(FIND_CONTEXT))
                                 .on_click(cx.listener(|this, _, window, cx| {
                                     this.replace_all(&ReplaceAll, window, cx)

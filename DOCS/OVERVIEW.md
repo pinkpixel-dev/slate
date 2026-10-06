@@ -18,12 +18,13 @@ This document describes how the project works right now. It is present tense. De
 
 ## Core Flow
 
-1. `main` collects every command-line argument as a file path, builds `Storage::from_env()`, then creates the GPUI application with `assets::AppAssets` and calls `gpui_kit::init`.
+1. `main` collects every command-line argument as an absolute file path and calls `single_instance::claim`. If another Slate is already listening on the socket, the paths go to it and this process exits. Otherwise `main` builds `Storage::from_env()`, then creates the GPUI application with `assets::AppAssets` and calls `gpui_kit::init`.
 2. `theme::init(storage.themes_dir(), cx)` parses the bundled themes, creates and reads the custom themes folder, records Kit's starting fonts and radius as a baseline, and stores it all in the `ThemeCatalog` global. Nothing is applied yet.
 3. `sidebar::init` binds Enter in the tree, and `workspace::init` binds the shortcuts in the `Workspace` key context.
 4. A window opens with client-side decorations (`WindowDecorations::Client`) and app id `dev.pinkpixel.Slate`. `Workspace::new(storage, ...)` loads settings and state, applies the theme and fonts with `theme::apply`, starts the custom themes watcher, then opens one Untitled tab. `open_window` wraps it in Kit's `Root`, which owns the window border, dialogs, sheets, notifications, and tooltips.
 5. With no command-line arguments, `restore_session` brings back the last session (if `restore_session` is on in settings). Otherwise each path goes through `open_path(path, missing_ok: true)`, and a folder opens in the sidebar.
-6. When the last window closes, the app quits.
+6. If this process owns the socket, a task waits for paths from later launches, opens each with `open_path(path, missing_ok: true)`, and calls `activate_window`.
+7. When the last window closes, the app quits.
 
 Invariants:
 
@@ -39,8 +40,12 @@ Invariants:
 | `src/theme/mod.rs` | `ThemeCatalog` (bundled and custom themes), `apply`, and `reload_custom` |
 | `src/theme/fonts.rs` | `FontLists`: installed fonts, and monospace fonts via `fc-list` |
 | `src/theme/watcher.rs` | `ThemeWatcher`: debounced `notify` watch on the custom themes folder |
-| `src/language.rs` | `Language { id, label }` and `detect(path)` |
-| `src/document.rs` | `Document` (path, language, untitled number, dirty tracking) plus `read_text` and `write_text` |
+| `src/language.rs` | `Language { id, label }`, `detect(path)`, and each language's `Comment` syntax |
+| `src/document.rs` | `Document` (path, language, untitled number, dirty tracking, line ending) plus `load`, `read_text`, and `write_text` |
+| `src/text_format.rs` | `LineEnding` and `Indent`: detection, labels, and CRLF conversion |
+| `src/line_ops.rs` | Duplicate, move up and down, and toggle comment, as pure text edits |
+| `src/file_index.rs` | Quick Open's file walk and fuzzy scoring |
+| `src/single_instance.rs` | The Unix socket that hands file arguments to a running Slate |
 | `src/tab_color.rs` | `TabColor` presets and custom colors, theme resolution, language colors |
 | `src/file_tree.rs` | `FileTree`: the sidebar's folder model, `list_dir`, hidden-file filtering, and tree item building |
 | `src/sidebar/mod.rs` | `Sidebar` view: lazy loading, refresh, `SidebarEvent` |
@@ -65,6 +70,10 @@ Invariants:
 | `src/workspace/tab_strip.rs` | The tab strip: tabs, accent lines, close buttons, drag and drop |
 | `src/workspace/tab_menu.rs` | Tab right-click menu and the custom color dialog |
 | `src/workspace/chrome.rs` | Title bar (Open Recent, theme menu, Settings button) and status bar |
+| `src/workspace/format_menus.rs` | The status bar's indentation and line ending menus |
+| `src/workspace/editing.rs` | Line editing and zoom actions |
+| `src/workspace/go_to_line.rs` | The Go to Line dialog and its parser |
+| `src/workspace/quick_open.rs` | The Quick Open dialog |
 | `src/workspace/tests.rs` | Headless UI tests and the shared test helpers |
 | `src/workspace/find_tests.rs` | Headless tests for the find bar |
 | `src/workspace/wrap_tests.rs` | Headless tests for word wrap |
@@ -73,14 +82,16 @@ Invariants:
 | `src/workspace/disk_tests.rs` | Headless tests for disk changes |
 | `src/workspace/preview_tests.rs` | Headless tests for the Markdown preview |
 | `src/workspace/minimap_tests.rs` | Headless tests for the minimap |
+| `src/workspace/editing_tests.rs` | Headless tests for line editing, Go to Line, zoom, Quick Open, line endings, and indentation |
+| `packaging/` | The desktop entry, the app icon, and the AUR `PKGBUILD` |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
 ## Workspace and buffers
 
-`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, a `saves_in_flight` count, an optional Markdown `preview`, and its `MinimapState`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
+`Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, an optional hand-picked `TabColor`, a `disk_conflict` flag, a `saves_in_flight` count, an optional Markdown `preview`, its `MinimapState`, and its `Indent`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
 
-Every editor gets line numbers, folding, 4-space tabs, the current whitespace setting, and soft wrap from the `word_wrap` setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
+Every editor gets line numbers, folding, the indentation guessed from its text (4 spaces when there's nothing to go on), the current whitespace setting, and soft wrap from the `word_wrap` setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
 
 New tabs go right after the active one. Untitled tabs take the lowest free number ("Untitled", "Untitled 2", ...). `Buffer::is_pristine` is true for an untitled, clean, empty tab, and opening a file reuses that tab instead of adding one.
 
@@ -109,6 +120,12 @@ All in the `Workspace` key context:
 | `ToggleCommandPalette` | `Ctrl+Shift+P` | Opens the command palette |
 | `ToggleMinimap` | `Ctrl+Shift+M` | Flips `show_minimap` and saves it |
 | `TogglePreview` | `Ctrl+Shift+V` (also a status bar button on Markdown tabs) | Shows or hides the active tab's Markdown preview |
+| `DuplicateLine` | `Ctrl+Shift+D` | Copies the selected lines below themselves |
+| `MoveLineUp` / `MoveLineDown` | `Alt+Up` / `Alt+Down` | Swaps the selected lines with the line above or below |
+| `ToggleComment` | `Ctrl+/` | Comments or uncomments the selected lines. Does nothing for languages without comments |
+| `GoToLine` | `Ctrl+G` | Opens the Go to Line dialog |
+| `QuickOpen` | `Ctrl+P` | Opens Quick Open |
+| `ZoomIn` / `ZoomOut` / `ResetZoom` | `Ctrl+=` (and `Ctrl++`) / `Ctrl+-` / `Ctrl+0` | Changes the editor font size for this run |
 | `OpenSettings` | `Ctrl+,` | Opens the settings sheet. Escape closes it (Kit's sheet handles that, since focus moves out of the `Workspace` context) |
 
 ### Dirty tracking
@@ -131,14 +148,42 @@ The window title is `"• name - Slate"` for a dirty active tab and `"name - Sla
 Reads and writes run on GPUI's background executor, and results come back through `cx.spawn_in`. Errors show as Kit error notifications.
 
 - `open_path` makes the path absolute, switches to the tab if the file is already open, and otherwise reads it in the background. With `missing_ok`, a `NotFound` error opens an empty tab with that path. `show_file` checks for an open tab again, since two opens of the same file can race.
+- `load` calls `read_text`, notes the line ending (`LineEnding::detect`: CRLF when at least half the breaks are `\r\n`), and turns every `\r\n` into `\n`. The editor only ever holds `\n`. Every read goes through `load`: opening, session restore, disk checks, and Reload.
 - `read_text` refuses files containing a NUL byte and files that aren't valid UTF-8. Nothing is decoded lossily.
-- `write_text` is a plain `std::fs::write`, so it keeps the file's inode and permissions.
+- `write_text` converts back to the document's line ending, then does a plain `std::fs::write`, so it keeps the file's inode and permissions.
+- Opening a file runs `Indent::detect` on the first 2000 lines. More tab-indented lines than space-indented ones means tabs. Otherwise the width is the most common step up in space indentation, ignoring one-space steps (block comment stars) unless nothing else shows up.
 - `Document` keeps the file's modified time from the last read or save (`disk_modified`), so session restore can tell whether a file changed under unsaved edits.
 - After a save, the language is re-detected and the highlighter switched if it changed, and the file is added to the recent list.
 
+## Line editing
+
+`line_ops.rs` works on plain text and a selection, and returns one `LineEdit` (a range, its replacement, and the new selection). `editing.rs` reads the active editor's text and selection, selects the range, calls Kit's `replace` (which is undoable and emits a change event), then sets the new selection. That makes each command one undo step. The actions only run while the active editor has focus, so `Alt+Up` in the find bar doesn't move lines behind it.
+
+All three commands work on whole lines. A selection that ends at the very start of a line leaves that line out, which matches how selecting lines with `Shift+Down` feels. Toggle Comment uncomments only when every non-blank line is already commented, inserts markers at the shallowest indent, and leaves blank lines alone. `Language::comment` gives the syntax: a line prefix for most languages, and a block pair (`<!-- -->`, `/* */`) for HTML, Markdown, and CSS.
+
+## Go to Line and Quick Open
+
+Both are Kit dialogs opened with `open_dialog`, like the command palette.
+
+Go to Line holds a single-line `InputState` that lives on the workspace. Kit's dialog turns Enter into its `Confirm` action, so the jump happens in the dialog's `on_ok`, which returns false (keeping the dialog open) when the text isn't a line number. `parse_target` accepts `12`, `12:5`, and `12,5`. Lines past the end land on the last line, and the target is unfolded before the cursor moves there.
+
+Quick Open uses a second `CommandState` with `filterable(false)`, so Kit shows exactly the rows Slate gives it. Opening it walks the root folder on the background executor with `file_index::list_files` (hidden files follow `show_hidden_files`, `.git` is always skipped, symlinked folders aren't followed, and it stops at 50,000 files). Each query change goes through `on_query` to `file_index::rank`, which keeps the best 100. A match needs every query character in order. Consecutive characters, characters at the start of a word, and characters in the file name score extra, and shorter paths win ties. The root is the sidebar folder, or the active file's folder when there isn't one.
+
+## Zoom
+
+`Settings::editor_zoom` holds the zoom steps and is `#[serde(skip)]`, so it's never written to `settings.json`. `theme::apply` adds it to the editor font size and clamps the result to 6 to 48. Because zoom lives in `Settings`, theme and font changes keep it.
+
+## Single instance
+
+`single_instance::claim` binds `$XDG_RUNTIME_DIR/slate.sock` (or `slate-$USER.sock` in the temp folder). If the bind fails because the socket exists, it tries to connect and send. A failed connect means a stale socket from a crash, so it removes the file and binds again. Paths travel as raw bytes separated by NUL. The listener runs on its own thread and hands paths to the app over a `futures` channel. Because only one process owns the window, only one writes `session.json`.
+
+## Packaging
+
+`packaging/dev.pinkpixel.Slate.desktop` and `packaging/dev.pinkpixel.Slate.png` share the window's app id, which is how Wayland desktops match the window to its icon. `packaging/aur/PKGBUILD` builds the `slate-editor` package from the GitHub release tarball for a version tag. `DOCS/AUR.md` covers publishing it.
+
 ## Tab strip
 
-The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each tab is 34px high and at most 220px wide, with a truncated name and a close button. The active tab uses `tab_active` colors; others use `tab_foreground` and highlight on hover.
+The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each tab is 34px high and at most 220px wide, with a truncated name and a close button. The active tab uses `tab_active` colors; others use `tab_foreground` and highlight on hover. For screen readers, the strip has the `TabList` role, each tab has the `Tab` role with its name (plus ", unsaved" when dirty) and selected state, and the close button is a named `Button`. Icon-only Kit buttons elsewhere get an `accessibility_label`, since Kit only names a button from its visible label.
 
 - **Accent line:** a 2px bar along the top edge, colored by `Workspace::tab_color`. Tabs without a color have no line.
 - **Close button:** clean tabs show the X when active or hovered. Dirty tabs show a dot that turns into the X on hover (`group_hover` on a per-tab group).
@@ -302,7 +347,7 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 70 tests.
+Run `cargo test`. There are 105 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
@@ -313,15 +358,16 @@ Run `cargo test`. There are 70 tests.
 - `workspace/disk_tests.rs` covers a clean tab reloading, Keep Mine and Reload on a tab with unsaved edits, Slate's own save not counting as an outside change, a deleted file staying open as unsaved, and session restore showing the bar for a file that changed.
 - `workspace/preview_tests.rs` covers the preview rendering and following typing, previews being per tab, and an open preview coming back with the session.
 - `minimap.rs` unit tests cover building runs (words, tabs, syntax colors) and the scroll math for short and long documents, dragging, and clicking. `workspace/minimap_tests.rs` covers every line getting drawn with syntax colors, a click scrolling the editor, and `Ctrl+Shift+M` and word wrap hiding it. Kit's test `click` only finds Kit components, so the click test calls `on_minimap_down` directly.
+- `text_format.rs`, `line_ops.rs`, `file_index.rs`, `single_instance.rs`, and `go_to_line.rs` have unit tests for line ending and indentation detection, each line edit (including selections and toggling twice), fuzzy ranking and the folder walk, forwarding paths over a real socket and replacing a stale one, and line number parsing. `workspace/editing_tests.rs` drives the shortcuts in a headless window: duplicate, move, and undo; `Ctrl+/` in Rust and plain text; line shortcuts staying out of the find bar; Go to Line, including bad input keeping the dialog open; zoom surviving a theme change without being saved; Quick Open finding and opening a file; a CRLF file saving as CRLF and then as LF; and detected tabs driving the Tab key.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits
 
-- Two Slate processes running with session restore will overwrite each other's `session.json`.
+- On Wayland, a second launch may not raise the existing window. Its files still open. Slate doesn't pass an XDG activation token along.
 - The minimap is hidden while word wrap is on, and doesn't account for folded code.
 - The sidebar's width resets each time it opens, and it can't create, rename, or delete files.
 - Recent files are only offered from the title bar dropdown. There's no menu bar.
-- The status bar's "Spaces: 4" and "UTF-8" labels are fixed.
+- The status bar's "UTF-8" label is fixed. Changing indentation in the status bar doesn't convert existing indentation, and it's forgotten when the tab closes.
 - Typing a font size goes through Kit's number field, which applies each keystroke clamped to 8 to 32. Typing `14` briefly applies 8 first. The + and - buttons don't have that problem.
 - The theme list doesn't mark which themes are custom.
 - With a font list open in Settings, the first click on the panel's X only closes the list. Kit's `Select` handles the click outside its popup itself and stops it there.

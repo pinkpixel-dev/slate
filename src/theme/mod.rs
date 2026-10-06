@@ -145,6 +145,10 @@ pub fn reload_custom(cx: &mut App) -> Vec<String> {
 }
 
 /// Applies the theme and font settings. An unknown theme name falls back to Slate Dark.
+/// The editor font size zoom stays within.
+pub const MIN_EDITOR_FONT_SIZE: f32 = 6.;
+pub const MAX_EDITOR_FONT_SIZE: f32 = 48.;
+
 pub fn apply(settings: &Settings, cx: &mut App) {
     let catalog = ThemeCatalog::global(cx);
     let Some(config) = settings
@@ -180,6 +184,10 @@ pub fn apply(settings: &Settings, cx: &mut App) {
         }
         if let Some(size) = settings.editor_font_size {
             theme.mono_font_size = px(size);
+        }
+        if settings.editor_zoom != 0. {
+            let zoomed = f32::from(theme.mono_font_size) + settings.editor_zoom;
+            theme.mono_font_size = px(zoomed.clamp(MIN_EDITOR_FONT_SIZE, MAX_EDITOR_FONT_SIZE));
         }
     });
 }

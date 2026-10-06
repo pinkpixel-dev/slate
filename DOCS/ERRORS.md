@@ -53,3 +53,29 @@ What did not work: Starting `FileWatcher` inside a headless test and then writin
 What worked instead: `Workspace::new` skips `FileWatcher` under `cfg!(test)`, and the tests call `Workspace::on_files_changed` directly with the changed paths. The sidebar's `DirWatcher` only gets away with running in tests because those tests never write into a watched folder.
 
 Note for next time: In headless tests, call a watcher's callback directly instead of letting a real OS watcher run.
+
+## 2026-10-06
+
+### Note: Enter in a Kit dialog runs the dialog's `on_ok`, which closes it by default
+
+What did not work: Go to Line subscribed to the input's `InputEvent::PressEnter` and returned early on bad input. The dialog closed anyway, because Kit's `Dialog` also turns Enter into its `Confirm` action, and the default `on_ok` closes the dialog.
+
+What worked instead: Doing the work inside `.on_ok(...)` on the dialog and returning `false` to keep it open.
+
+Note for next time: For any Kit dialog that validates input, put the logic in `on_ok`, not in an input event subscription.
+
+### Note: Moving `XDG_RUNTIME_DIR` for an isolated launch hides the Wayland socket
+
+What did not work: Launching a test Slate with `XDG_RUNTIME_DIR` pointed at a scratch folder (so the single-instance socket wouldn't reach a real Slate). The window never opened, because `WAYLAND_DISPLAY=wayland-1` is resolved relative to `XDG_RUNTIME_DIR`.
+
+What worked instead: Also setting `WAYLAND_DISPLAY` to the absolute socket path, `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` taken before the override. Override `XDG_STATE_HOME` and `XDG_CONFIG_HOME` too, so the test can't touch the real session.
+
+Note for next time: Isolated launches on this machine need all three XDG overrides plus an absolute `WAYLAND_DISPLAY`.
+
+### Note: makepkg's LTO breaks the Rust link for Slate
+
+What did not work: Building the PKGBUILD with makepkg's default `OPTIONS` (which include `lto`, with `LTOFLAGS="-flto=auto"`). The C code that crates compile through `cc` (tree-sitter grammars, the Wayland client shim) came out as GCC LTO bitcode, and the final link failed with hundreds of `rust-lld: error: undefined symbol: ts_...` errors.
+
+What worked instead: `options=('!lto')` in the PKGBUILD.
+
+Note for next time: Any Rust PKGBUILD whose dependencies compile C code needs `!lto`. Test with a real `makepkg` before publishing, since `cargo build` alone never sees makepkg's flags.

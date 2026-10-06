@@ -17,11 +17,17 @@ It's built in Rust with [GPUI Kit](https://gpui-kit.com), which renders the whol
 - A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, and it updates by itself when files change
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
+- Line shortcuts: duplicate a line (`Ctrl+Shift+D`), move lines up or down (`Alt+Up/Down`), and comment or uncomment them (`Ctrl+/`). Comments use the right syntax for the language, and languages without line comments (HTML, CSS, Markdown) get each line wrapped instead
+- Go to Line (`Ctrl+G`). Type `42`, or `42:10` to land on a column too
+- Quick Open (`Ctrl+P`) for fuzzy-finding a file in the sidebar folder. With no folder open, it searches the folder of the file you're on
+- Zoom the editor text with `Ctrl+=` and `Ctrl+-`, and `Ctrl+0` to reset. Zoom only lasts until you close Slate, so your real font size stays whatever Settings says
 - A find and replace bar (`Ctrl+F`, `Ctrl+H`) with a match counter and a Match Case toggle. It starts at your cursor and selects the match it lands on
 - Session restore: start Slate without any files and it reopens your last tabs and sidebar folder, unsaved edits included. Quitting doesn't nag you about unsaved tabs, because they'll be right there next time. You can turn this off in Settings
 - Slate notices when an open file changes on disk. Tabs without edits just reload. If you have unsaved edits, a bar asks whether to reload or keep yours. A deleted file stays open, marked unsaved, so saving puts it back
 - A dot by the file name when you have unsaved edits. Closing an unsaved tab asks Save / Don't Save / Cancel, and so does quitting when session restore is off or you opened Slate with files
 - Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position and language
+- Slate guesses each file's indentation (tabs or spaces, and how wide) and line endings when it opens. Both show in the status bar, and clicking them lets you switch. A CRLF file stays CRLF when you save, unless you change it there
+- One Slate at a time: running `slate notes.txt` while Slate is already open adds a tab to that window instead of starting a second copy
 - 37 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
 - A minimap (`Ctrl+Shift+M`) with syntax colors along the right edge. Click or drag it to move around. It hides while word wrap is on
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
@@ -41,6 +47,8 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+Shift+O` | Open folder |
 | `Ctrl+B` | Show or hide the sidebar |
 | `Ctrl+Shift+P` | Command palette |
+| `Ctrl+P` | Quick Open |
+| `Ctrl+G` | Go to Line |
 | `Ctrl+Shift+V` | Markdown preview |
 | `Ctrl+Shift+M` | Minimap |
 | `Ctrl+,` | Settings |
@@ -49,6 +57,10 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+F` | Find |
 | `Ctrl+H` | Find and replace |
 | `F3` / `Shift+F3` | Next / previous match |
+| `Ctrl+Shift+D` | Duplicate line |
+| `Alt+Up` / `Alt+Down` | Move line up / down |
+| `Ctrl+/` | Toggle comment |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
 | `Alt+Z` | Word wrap |
 | `Ctrl+Q` | Quit |
 
@@ -65,6 +77,18 @@ Slate watches that folder, so your changes show up as soon as you save the file.
 ### Languages
 
 Bash/Shell, C, C++, CSS, Diff, Go, HTML, Java, JavaScript, JSON, Lua, Makefile, Markdown, PHP, Python, Ruby, Rust, SQL, TOML, TSX, TypeScript, YAML, and Zig. Anything else opens as plain text.
+
+## Install
+
+On Arch and Arch-based distros (CachyOS, EndeavourOS, Manjaro), Slate is on the AUR as `slate-editor`. The name `slate` was already taken by a pixel art editor, and both install a `slate` command, so pacman won't let you have the two at once.
+
+```bash
+paru -S slate-editor
+```
+
+(`yay -S slate-editor` works the same way.) It builds from source, so the first install takes a few minutes. You get the `slate` command plus a desktop entry, so Slate shows up in your app launcher.
+
+On anything else, build it yourself with the steps below.
 
 ## Requirements
 

@@ -1,35 +1,46 @@
-# Slate 0.6.0
+# Slate 0.7.0
 
-Released October 5, 2026.
+Released October 6, 2026.
 
-This is the phase 5 release, and it's a big one. Slate picks up the features I kept reaching for and not finding: a proper find and replace bar, a command palette, a Markdown preview, a minimap, and word wrap. It also gets a lot harder to lose work in. Your tabs and unsaved edits come back next time you start it, and Slate now notices when a file changes on disk instead of quietly overwriting it.
+This is the phase 6 release. It's mostly small editing things I kept missing (Go to Line, moving lines around, Ctrl+/ comments, zoom, Quick Open), plus the stuff that makes Slate feel like a real installed app: one window instead of a pile of them, a desktop entry with an icon, and an AUR package.
 
 ## Highlights
 
-- **Find and replace** (`Ctrl+F`, `Ctrl+H`): a bar above the editor that starts at your cursor, counts matches, and has Match Case, Replace, and Replace All
-- **Session restore:** start Slate with no files and your last tabs, cursor positions, sidebar folder, and unsaved edits come back. That includes untitled tabs you never saved
-- **Changes on disk:** tabs without edits reload by themselves. Tabs with unsaved edits get a bar asking whether to reload or keep your version. Deleted files stay open so you can save them back
-- **Command palette** (`Ctrl+Shift+P`): every command by name, with its shortcut next to it
-- **Markdown preview** (`Ctrl+Shift+V`): a live, resizable preview next to the editor, one per tab
-- **Minimap** (`Ctrl+Shift+M`): a colored overview of the file along the right edge that you can click and drag
-- **Word wrap** (`Alt+Z`): in the status bar and Settings, and remembered between runs
+- **Line shortcuts:** `Ctrl+Shift+D` duplicates lines, `Alt+Up` / `Alt+Down` move them, and `Ctrl+/` comments or uncomments them with the right syntax for the language
+- **Go to Line** (`Ctrl+G`): type a line number, or `line:column`
+- **Quick Open** (`Ctrl+P`): fuzzy-find a file in the sidebar folder, or in the current file's folder when the sidebar is empty
+- **Zoom** (`Ctrl+=`, `Ctrl+-`, `Ctrl+0`): makes the editor text bigger or smaller until you close Slate
+- **Indentation and line endings:** Slate guesses whether a file uses tabs or spaces (and how wide) and whether it's LF or CRLF. Both show in the status bar, where you can change them. CRLF files save back as CRLF
+- **Single instance:** `slate notes.txt` opens a tab in the Slate that's already running instead of starting another one
+- **Desktop entry and icon**, so Slate shows up in your launcher and in "Open With" menus
+- **AUR package:** `slate-editor`
+
+## Fixes and improvements
+
+- Two Slate windows can't overwrite each other's saved session anymore, since there's only ever one
+- Icon-only buttons have names for screen readers, and tabs are announced as tabs, with their unsaved state
+- The command palette has Edit and Go groups with all the new commands
 
 ## Things that work differently now
 
-- **Quitting doesn't ask about unsaved tabs** while session restore is on, which is the default. The edits are saved for next time. Closing a single unsaved tab with `Ctrl+W` still asks. If you'd rather have the old prompt back, turn off **Settings → General → Editor → Restore last session**.
-- **Opening Slate with files** (`slate notes.txt`) doesn't restore the session, and it doesn't touch the saved one either. Quitting that window asks about unsaved tabs like before.
-- Slate keeps the session in `~/.local/state/slate/session.json`, including the text of unsaved tabs.
+- **Launching Slate again reuses the open window.** Files you pass on the command line open as tabs there, and the second launch exits right away. A plain `slate` with no files just brings the window forward.
+- **Changing line endings marks the tab unsaved**, because the file on disk will change when you save. Changing indentation doesn't, since it only affects what Tab inserts from then on. Existing indentation isn't converted.
 
 ## Known issues
 
-- If two Slate windows are open from separate launches without files, they'll overwrite each other's saved session, and whichever closes last wins. Single-instance mode is planned for phase 6 to fix this.
-- The minimap hides while word wrap is on, and its viewport box drifts a bit below folded code. GPUI Kit doesn't expose wrapped or folded rows yet.
-- The Markdown preview doesn't scroll along with the editor, and images with relative paths don't load.
-- Match Case only applies to ASCII letters, and there's no regex or whole-word search yet.
+- On Wayland, the existing window may not jump to the front when you launch Slate again. Your files still open as tabs. Compositors only let a window raise itself in certain cases, and I haven't added activation token support yet.
+- Startup takes around half a second on my machine. Almost all of that is GPUI setting up the GPU and the window, not Slate itself.
+- Carried over from 0.6.0: the minimap hides while word wrap is on, the Markdown preview doesn't scroll with the editor, and Match Case only applies to ASCII letters.
 
-## Updating
+## Installing and updating
 
-There are no settings to migrate. New settings (`word_wrap`, `restore_session`, `show_minimap`) get their defaults the first time Slate reads your existing `settings.json`.
+On Arch-based distros:
+
+```bash
+paru -S slate-editor
+```
+
+From source:
 
 ```bash
 cd slate
@@ -37,26 +48,29 @@ git pull
 cargo run --release
 ```
 
+There's nothing to migrate. Zoom isn't saved, so it never shows up in `settings.json`.
+
 ## GitHub release
 
-**Title:** Slate 0.6.0: find and replace, session restore, command palette, Markdown preview, and a minimap
+**Title:** Slate 0.7.0: line shortcuts, Quick Open, single instance, and an AUR package
 
 **Body:**
 
-Slate 0.6.0 finishes phase 5. It's mostly about the editor features you reach for every day, plus making it a lot harder to lose work.
+Slate 0.7.0 finishes phase 6: the last batch of editing basics, plus packaging.
 
 **New**
 
-- Find and replace bar (`Ctrl+F` / `Ctrl+H`) with a match counter, Match Case, and Replace All
-- Session restore: your last tabs, cursors, sidebar folder, and unsaved edits (untitled tabs too) come back when you start Slate without files
-- Changes on disk are noticed. Clean tabs reload, tabs with unsaved edits ask whether to reload or keep yours, and deleted files stay open so you can save them back
-- Command palette (`Ctrl+Shift+P`) with shortcut hints
-- Live Markdown preview (`Ctrl+Shift+V`) in a resizable split
-- Minimap with syntax colors (`Ctrl+Shift+M`)
-- Word wrap toggle (`Alt+Z`)
+- Duplicate line (`Ctrl+Shift+D`), move lines (`Alt+Up` / `Alt+Down`), and toggle comment (`Ctrl+/`)
+- Go to Line (`Ctrl+G`), including `line:column`
+- Quick Open (`Ctrl+P`) to fuzzy-find files in the sidebar folder
+- Editor zoom (`Ctrl+=` / `Ctrl+-` / `Ctrl+0`)
+- Indentation and line ending detection, shown and changeable in the status bar. CRLF files stay CRLF
+- Single instance: `slate file.txt` opens a tab in the running window
+- Desktop entry and app icon
+- On the AUR as `slate-editor`
 
-**Heads up:** with session restore on (the default), quitting no longer asks about unsaved tabs, because they're saved for next time. You can turn this off in Settings.
+**Heads up:** a second `slate` launch now hands its files to the open window and exits.
 
-**Known issues:** two windows from separate launches can overwrite each other's saved session. The minimap hides while word wrap is on. The Markdown preview doesn't scroll with the editor.
+**Known issues:** on Wayland the window may not come to the front when you launch Slate again (files still open). The minimap hides while word wrap is on.
 
 Made with 💖 by Pink Pixel

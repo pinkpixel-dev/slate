@@ -25,6 +25,7 @@ impl Buffer {
         document: Document,
         text: String,
         show_whitespace: bool,
+        word_wrap: bool,
         window: &mut Window,
         cx: &mut Context<Workspace>,
     ) -> Self {
@@ -34,7 +35,7 @@ impl Buffer {
                 .language(language)
                 .line_number(true)
                 .folding(true)
-                .soft_wrap(false)
+                .soft_wrap(word_wrap)
                 // Slate draws its own find bar (`find_bar.rs`), so Ctrl+F goes up to the workspace.
                 .searchable(false)
                 .show_whitespaces(show_whitespace)

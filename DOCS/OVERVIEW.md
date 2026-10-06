@@ -60,6 +60,7 @@ Invariants:
 | `src/workspace/chrome.rs` | Title bar (Open Recent, theme menu, Settings button) and status bar |
 | `src/workspace/tests.rs` | Headless UI tests and the shared test helpers |
 | `src/workspace/find_tests.rs` | Headless tests for the find bar |
+| `src/workspace/wrap_tests.rs` | Headless tests for word wrap |
 | `themes/slate.json` | The Slate Dark theme, embedded at compile time with `include_str!` |
 | `themes/kit/*.json` | Kit's 21 theme files (36 themes) from the `v0.7.1` tag, embedded the same way |
 
@@ -67,7 +68,7 @@ Invariants:
 
 `Workspace` holds `buffers: Vec<Buffer>` and an `active` index. Each `Buffer` has a stable `BufferId`, its own `Entity<EditorState>`, a `Document`, and an optional hand-picked `TabColor`. Async work (reads, writes, dialogs) carries a `BufferId`, never an index, because tabs can move or close while it runs.
 
-Every editor gets line numbers, folding, soft wrap off, 4-space tabs, and the current whitespace setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
+Every editor gets line numbers, folding, 4-space tabs, the current whitespace setting, and soft wrap from the `word_wrap` setting. Editors are built with `searchable(false)`, which turns off Kit's own search panel so `Ctrl+F` and `Ctrl+H` reach the workspace. Each buffer subscribes to its editor: `InputEvent::Change` bumps the document revision, and any editor update redraws the workspace so the status bar stays current. Only the active buffer's `Editor` element is rendered.
 
 New tabs go right after the active one. Untitled tabs take the lowest free number ("Untitled", "Untitled 2", ...). `Buffer::is_pristine` is true for an untitled, clean, empty tab, and opening a file reuses that tab instead of adding one.
 
@@ -86,6 +87,7 @@ All in the `Workspace` key context:
 | `PreviousTab` | `Ctrl+Shift+Tab`, `Ctrl+PageUp` | Wraps around |
 | `Quit` | `Ctrl+Q` | `close_window` |
 | `ToggleWhitespace` | none (status bar button) | Applies to every open editor |
+| `ToggleWordWrap` | `Alt+Z` (also a status bar button) | Flips `word_wrap`, saves it, and applies it to every open editor |
 | `ToggleSidebar` | `Ctrl+B` | Shows or hides the sidebar. Showing it with no folder open opens the active file's folder |
 | `OpenFolder` | `Ctrl+Shift+O` | Native folder picker, then `show_folder` |
 | `Search` (Kit's) | `Ctrl+F` | Opens the find bar |
@@ -128,6 +130,10 @@ The tab strip is drawn by Slate (`tab_strip.rs`), not by Kit's `TabBar`. Each ta
 - **Overflow:** the strip scrolls horizontally, and `activate` scrolls the active tab into view.
 
 The right-click menu (`tab_menu.rs`) has Close, Close Others, and a Tab Color submenu: Automatic (clears the hand-picked color), six presets with swatches, and Custom... (a dialog with Kit's `ColorSelect`). The color mode itself lives in Settings.
+
+## Word wrap
+
+`Settings::word_wrap` drives soft wrap for every editor. `Alt+Z` and the status bar button run `ToggleWordWrap`, which has a window and applies the change right away. The settings panel's switch calls `set_word_wrap` instead. Its callbacks only get `App`, and Kit's `set_soft_wrap` takes a `Window`, so it saves the setting and then uses `cx.defer` to apply it through the workspace's stored `AnyWindowHandle` once the current window update is done.
 
 ## Find bar
 
@@ -176,7 +182,7 @@ Theme mode colors by position, so dragging a tab to a new spot changes its color
 
 | File | Type | Contents |
 |---|---|---|
-| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
+| `settings.json` | `Settings` | `tab_color_mode`: `"theme"` (default), `"language"`, or `"off"`. The old `"manual"` value loads as `"off"`. `show_hidden_files`: `false` by default. `word_wrap`: `false` by default. `theme`, `ui_font`, `ui_font_size`, `editor_font`, `editor_font_size`: all optional, `null` means the default |
 | `state.json` | `AppState` | `recent_files` (newest first, max 10, no duplicates) and `tab_colors` (path to `TabColor`) |
 
 Both use `#[serde(default)]`, so missing keys get defaults and unknown keys are ignored. A missing file loads as defaults. An unparseable file prints a warning and loads as defaults, and it gets overwritten the next time that file is saved.
@@ -210,11 +216,12 @@ Kit's default `Assets` holds 101 Lucide icons. `assets::AppAssets` adds Slate's 
 
 ## Tests
 
-Run `cargo test`. There are 41 tests.
+Run `cargo test`. There are 43 tests.
 
 - Unit tests cover the file tree (sorting, hidden filtering, placeholders, forgetting folders), language detection, document reading and dirty tracking, untitled numbering, tab color serialization and near-duplicate color matching, the storage round trip, defaults, and recent-file limits, every bundled theme parsing, custom theme folder loading (including a broken file), and `fc-list` output parsing.
 - `workspace/tests.rs` drives a real `Workspace` in a headless window. Each test uses `Storage::in_dir` on its own temp folder, so tests never touch your real config. They cover new tabs and cycling, the close and quit prompts across several tabs, reusing the empty tab when opening, recent files on disk, tab colors coming back for a file, reordering, opening a folder into the sidebar, `Ctrl+B` opening the active file's folder, theme and font settings applying and persisting, theme switches changing syntax and palette colors, the tab color modes, `Ctrl+,` opening the settings sheet, and the sheet's X needing two clicks while a font list is open. Sidebar tests read the tree's entries from `TreeState` rather than querying rows by id, because tree rows and their `ListItem`s share integer ids.
 - `workspace/find_tests.rs` covers stepping through matches, starting from the cursor and seeding from the selection, match case, replace and replace all, and the search following tab switches.
+- `workspace/wrap_tests.rs` checks wrapping by behavior, since Kit has no soft wrap getter: on a long wrapped line, Down stays on buffer line 0. It covers `Alt+Z`, new tabs picking up the setting, the saved setting, and the settings panel path.
 - Test modules must import Kit types explicitly instead of `use gpui_kit::*`. See `ERRORS.md`.
 
 ## Current limits

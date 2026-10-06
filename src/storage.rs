@@ -16,6 +16,8 @@ pub struct Settings {
     pub tab_color_mode: TabColorMode,
     /// Show dotfiles and folders like `node_modules` in the sidebar.
     pub show_hidden_files: bool,
+    /// Soft-wrap long lines in every editor.
+    pub word_wrap: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,
     /// Font overrides; `None` keeps the theme's (or Kit's) default.

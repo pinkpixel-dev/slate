@@ -4,7 +4,7 @@ use gpui_kit::assets::{Assets as ComponentAssets, icon_assets};
 use gpui_kit::{AssetSource, Result, SharedString};
 
 // Lucide icons Slate uses beyond Kit's default component set.
-icon_assets!(ExtraIcons, [FilePlus, Save, Pilcrow, ReplaceAll]);
+icon_assets!(ExtraIcons, [FilePlus, Save, Pilcrow, ReplaceAll, TextWrap]);
 
 /// Kit's default icons plus Slate's extras.
 pub struct AppAssets;

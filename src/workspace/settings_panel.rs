@@ -220,7 +220,7 @@ fn size_field(
     )
 }
 
-fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 2] {
+fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     let (get_mode, set_mode) = (this.clone(), this.clone());
     let tab_colors = SettingField::dropdown(
         vec![
@@ -253,7 +253,17 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 2] {
     )
     .default_value(false);
 
+    let (get_wrap, set_wrap) = (this.clone(), this.clone());
+    let wrap = SettingField::switch(
+        move |cx| current(&get_wrap, cx).word_wrap,
+        move |wrap, cx| {
+            _ = set_wrap.update(cx, |workspace, cx| workspace.set_word_wrap(wrap, cx));
+        },
+    )
+    .default_value(false);
+
     [
+        SettingGroup::new().title("Editor").item(SettingItem::new("Word wrap", wrap)),
         SettingGroup::new().title("Tabs").item(SettingItem::new("Tab colors", tab_colors)),
         SettingGroup::new()
             .title("Sidebar")

@@ -11,7 +11,8 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::{
-    KEY_CONTEXT, NewFile, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, Workspace,
+    KEY_CONTEXT, NewFile, Open, OpenSettings, Save, TAB_SIZE, ToggleSidebar, ToggleWhitespace, ToggleWordWrap,
+    Workspace,
 };
 use crate::theme::{DEFAULT_THEME_NAME, ThemeCatalog};
 
@@ -182,6 +183,15 @@ impl Workspace {
         StatusBar::new()
             .text_color(cx.theme().muted_foreground)
             .left(buffer.document.language().label)
+            .right(
+                Button::new("toggle-word-wrap")
+                    .ghost()
+                    .xsmall()
+                    .icon(Icon::new(CatalogIcon::TextWrap))
+                    .selected(self.settings.word_wrap)
+                    .tooltip_with_action("Word Wrap", &ToggleWordWrap, Some(KEY_CONTEXT))
+                    .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleWordWrap), cx)),
+            )
             .right(
                 Button::new("toggle-whitespace")
                     .ghost()

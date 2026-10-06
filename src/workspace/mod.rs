@@ -13,6 +13,8 @@ mod unsaved;
 mod find_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod wrap_tests;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::input::Editor;
@@ -39,6 +41,7 @@ actions!(
         PreviousTab,
         Quit,
         ToggleWhitespace,
+        ToggleWordWrap,
         ToggleSidebar,
         OpenFolder,
         OpenSettings,
@@ -62,6 +65,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-shift-tab", PreviousTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-pageup", PreviousTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-q", Quit, Some(KEY_CONTEXT)),
+        KeyBinding::new("alt-z", ToggleWordWrap, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-b", ToggleSidebar, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-shift-o", OpenFolder, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-,", OpenSettings, Some(KEY_CONTEXT)),
@@ -79,6 +83,7 @@ enum PendingAction {
 /// The editor window: title bar, tab strip, the active buffer's editor, and status bar.
 pub struct Workspace {
     focus_handle: FocusHandle,
+    window: AnyWindowHandle,
     buffers: Vec<Buffer>,
     active: usize,
     next_buffer_id: u64,
@@ -117,6 +122,7 @@ impl Workspace {
 
         let mut workspace = Self {
             focus_handle: cx.focus_handle(),
+            window: window.window_handle(),
             buffers: Vec::new(),
             active: 0,
             next_buffer_id: 0,
@@ -152,7 +158,15 @@ impl Workspace {
     fn push_buffer(&mut self, document: Document, text: String, window: &mut Window, cx: &mut Context<Self>) {
         let id = BufferId(self.next_buffer_id);
         self.next_buffer_id += 1;
-        let buffer = Buffer::new(id, document, text, self.show_whitespace, window, cx);
+        let buffer = Buffer::new(
+            id,
+            document,
+            text,
+            self.show_whitespace,
+            self.settings.word_wrap,
+            window,
+            cx,
+        );
         let index = if self.buffers.is_empty() { 0 } else { self.active + 1 };
         self.buffers.insert(index, buffer);
         self.activate(index, window, cx);
@@ -290,6 +304,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::quit))
             .on_action(cx.listener(Self::toggle_whitespace))
+            .on_action(cx.listener(Self::toggle_word_wrap))
             .on_action(cx.listener(Self::toggle_sidebar))
             .on_action(cx.listener(Self::open_folder))
             .on_action(cx.listener(Self::open_settings))

@@ -3,7 +3,7 @@ use std::path::Path;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
-use super::Workspace;
+use super::{ToggleWordWrap, Workspace};
 use super::buffer::{Buffer, BufferId};
 use super::files::notify_error;
 use crate::storage::{self, Settings, TabColorMode};
@@ -52,6 +52,37 @@ impl Workspace {
         change(&mut self.settings);
         self.save_settings();
         crate::theme::apply(&self.settings, cx);
+        cx.notify();
+    }
+
+    pub(super) fn toggle_word_wrap(&mut self, _: &ToggleWordWrap, window: &mut Window, cx: &mut Context<Self>) {
+        self.settings.word_wrap = !self.settings.word_wrap;
+        self.save_settings();
+        self.apply_word_wrap(window, cx);
+    }
+
+    /// For the settings panel, whose callbacks don't get a window. The change
+    /// is applied once the current window update finishes.
+    pub(super) fn set_word_wrap(&mut self, wrap: bool, cx: &mut Context<Self>) {
+        if self.settings.word_wrap == wrap {
+            return;
+        }
+        self.settings.word_wrap = wrap;
+        self.save_settings();
+        let (handle, this) = (self.window, cx.entity().downgrade());
+        cx.defer(move |cx| {
+            _ = handle.update(cx, |_, window, cx| {
+                _ = this.update(cx, |workspace, cx| workspace.apply_word_wrap(window, cx));
+            });
+        });
+        cx.notify();
+    }
+
+    fn apply_word_wrap(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let wrap = self.settings.word_wrap;
+        for buffer in &self.buffers {
+            buffer.editor.update(cx, |state, cx| state.set_soft_wrap(wrap, window, cx));
+        }
         cx.notify();
     }
 

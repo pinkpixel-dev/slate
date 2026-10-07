@@ -5,6 +5,7 @@ use gpui_kit::component::{ActiveTheme as _, Icon, IconName, IndexPath, Sizable a
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use super::color_swatches::{EditColor, ToggleColorSwatches};
 use super::editing::{DuplicateLine, MoveLineDown, MoveLineUp, ResetZoom, ToggleComment, ZoomIn, ZoomOut};
 use super::go_to_line::GoToLine;
 use super::minimap::ToggleMinimap;
@@ -78,6 +79,7 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Move Line Up", || Box::new(MoveLineUp)),
             command("Move Line Down", || Box::new(MoveLineDown)),
             command("Toggle Comment", || Box::new(ToggleComment)).keywords(&["uncomment"]),
+            command("Edit Color...", || Box::new(EditColor)).keywords(&["picker", "swatch", "hex", "rgb", "hsl"]),
         ],
     ),
     (
@@ -104,6 +106,8 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             toggle("Toggle Word Wrap", || Box::new(ToggleWordWrap), |ws| ws.settings.word_wrap),
             toggle("Toggle Whitespace", || Box::new(ToggleWhitespace), |ws| ws.show_whitespace),
             toggle("Toggle Minimap", || Box::new(ToggleMinimap), |ws| ws.settings.show_minimap),
+            toggle("Toggle Color Swatches", || Box::new(ToggleColorSwatches), |ws| ws.settings.color_swatches)
+                .keywords(&["color picker"]),
             toggle("Toggle Markdown Preview", || Box::new(TogglePreview), |ws| {
                 ws.active_buffer().preview.is_some()
             }),

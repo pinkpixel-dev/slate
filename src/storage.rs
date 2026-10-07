@@ -23,6 +23,8 @@ pub struct Settings {
     pub restore_session: bool,
     /// Show the minimap along the editor's right edge (hidden while word wrap is on).
     pub show_minimap: bool,
+    /// Show a clickable square after lines with color values in them.
+    pub color_swatches: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,
     /// Font overrides; `None` keeps the theme's (or Kit's) default.
@@ -44,6 +46,7 @@ impl Default for Settings {
             word_wrap: false,
             restore_session: true,
             show_minimap: true,
+            color_swatches: true,
             theme: None,
             ui_font: None,
             ui_font_size: None,

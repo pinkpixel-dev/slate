@@ -1,5 +1,6 @@
 mod buffer;
 mod chrome;
+mod color_swatches;
 mod disk_watch;
 mod editing;
 mod files;
@@ -36,6 +37,8 @@ mod preview_tests;
 mod minimap_tests;
 #[cfg(test)]
 mod editing_tests;
+#[cfg(test)]
+mod color_swatch_tests;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -293,6 +296,7 @@ impl Workspace {
     fn text_changed(&mut self, id: BufferId, cx: &mut Context<Self>) {
         self.sync_preview(id, cx);
         self.mark_minimap_stale(id, cx);
+        self.refresh_colors(id, cx);
     }
 
     fn sync_window_title(&self, window: &mut Window) {
@@ -344,6 +348,7 @@ impl Workspace {
             .bordered(false)
             .aria_label("Editor")
             .into_any_element();
+        let editor = self.render_with_swatches(editor, cx);
         let editor = self.render_with_minimap(editor, cx);
         v_flex()
             .size_full()
@@ -396,6 +401,8 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::reset_zoom))
             .on_action(cx.listener(Self::go_to_line))
             .on_action(cx.listener(Self::quick_open))
+            .on_action(cx.listener(Self::edit_color))
+            .on_action(cx.listener(Self::toggle_color_swatches))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

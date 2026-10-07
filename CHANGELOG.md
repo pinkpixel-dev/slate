@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0 - October 7, 2026
+
+### 🎨 Color swatches
+
+- Lines with a color value in them get a small square after the last character, filled with that color. Hex (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), `rgb()`, `rgba()`, `hsl()`, and `hsla()` all count, in any file
+- Click a square to open a color picker. Apply rewrites the value in the format it was already in (short hex stays short when it can, uppercase stays uppercase, `hsl()` stays `hsl()`), and it's one undo step
+- Edit Color in the command palette opens the same picker for the color under the cursor, so you can do it from the keyboard too
+- Turn them off with Color swatches in Settings, or Toggle Color Swatches in the palette
+
+### 🏷️ Versioning
+
+- Bumped to 0.9.0
+
 ## 0.8.0 - October 6, 2026
 
 ### 🎨 Themes

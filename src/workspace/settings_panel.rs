@@ -271,6 +271,15 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     )
     .default_value(true);
 
+    let (get_swatches, set_swatches) = (this.clone(), this.clone());
+    let swatches = SettingField::switch(
+        move |cx| current(&get_swatches, cx).color_swatches,
+        move |show, cx| {
+            _ = set_swatches.update(cx, |workspace, cx| workspace.set_color_swatches(show, cx));
+        },
+    )
+    .default_value(true);
+
     let (get_restore, set_restore) = (this.clone(), this.clone());
     let restore = SettingField::switch(
         move |cx| current(&get_restore, cx).restore_session,
@@ -285,6 +294,7 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
             .title("Editor")
             .item(SettingItem::new("Word wrap", wrap))
             .item(SettingItem::new("Minimap", minimap).description("Hidden while word wrap is on"))
+            .item(SettingItem::new("Color swatches", swatches).description("Click one to pick a new color"))
             .item(
                 SettingItem::new("Restore last session", restore)
                     .description("Reopens your tabs, unsaved edits included, when Slate starts without files"),

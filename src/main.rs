@@ -1,4 +1,5 @@
 mod assets;
+mod color_values;
 mod document;
 mod file_index;
 mod file_tree;

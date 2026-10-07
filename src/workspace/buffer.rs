@@ -1,9 +1,12 @@
+use std::rc::Rc;
+
 use gpui_kit::component::input::{EditorState, InputEvent, TabSize};
 use gpui_kit::component::text::TextViewState;
 use gpui_kit::*;
 
 use super::Workspace;
 use super::minimap::MinimapState;
+use crate::color_values::{self, ColorLine};
 use crate::document::Document;
 use crate::tab_color::TabColor;
 use crate::text_format::Indent;
@@ -27,6 +30,8 @@ pub struct Buffer {
     /// The rendered Markdown shown next to the editor, while it's open.
     pub preview: Option<Entity<TextViewState>>,
     pub minimap: MinimapState,
+    /// The color values in the text, for the swatches after each line.
+    pub colors: Rc<Vec<ColorLine>>,
     /// What Tab inserts, guessed from the file and changeable from the status bar.
     pub indent: Indent,
     _subscriptions: Vec<Subscription>,
@@ -44,6 +49,7 @@ impl Buffer {
     ) -> Self {
         let language = document.language().id;
         let indent = Indent::detect(&text).unwrap_or_default();
+        let colors = Rc::new(color_values::scan(&text));
         let editor = cx.new(|cx| {
             EditorState::new(window, cx)
                 .language(language)
@@ -90,6 +96,7 @@ impl Buffer {
             saves_in_flight: 0,
             preview: None,
             minimap: MinimapState::default(),
+            colors,
             indent,
             _subscriptions: subscriptions,
         }

@@ -27,8 +27,9 @@
 - 39 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Slate Blue (blue-gray slate with blue, cyan, and purple syntax), Neon (dark charcoal with bright neon syntax colors), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
 - A minimap (`Ctrl+Shift+M`) with syntax colors along the right edge. Click or drag it to move around. It hides while word wrap is on
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
+- Color swatches: a small square after any line with a hex, `rgb()`, or `hsl()` color in it. Click it (or run Edit Color from the palette with your cursor on the value) to pick a new color, and Slate rewrites the value in the same format
 - A command palette (`Ctrl+Shift+P`) for running any command by name, with its shortcut shown next to it
-- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, session restore, tab color mode, and hidden files
+- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, color swatches, session restore, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
 

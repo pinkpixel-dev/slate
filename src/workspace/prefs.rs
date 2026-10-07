@@ -134,7 +134,7 @@ impl Workspace {
         cx.notify();
     }
 
-    fn save_state(&self) {
+    pub(super) fn save_state(&self) {
         write_now(&self.storage.state_path(), &storage::to_json(&self.state));
     }
 }

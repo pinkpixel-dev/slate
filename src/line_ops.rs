@@ -1,6 +1,6 @@
-//! Line editing commands that Kit's editor doesn't have: duplicate, move up
-//! and down, and toggle comment. Each one works on whole lines and returns a
-//! single replacement, so the editor can apply it as one undoable edit.
+//! Editing commands that Kit's editor doesn't have: duplicate, move up and
+//! down, toggle comment, sort lines, change case, and the save cleanup. Each
+//! returns a single replacement, so the editor can apply it as one undoable edit.
 
 use std::ops::Range;
 
@@ -107,6 +107,92 @@ fn map_offset(offset: usize, changes: &[Change], stay_left: bool) -> usize {
         }
     }
     moved.max(0) as usize
+}
+
+/// Sorts the selected lines, A to Z, ignoring case (ties keep their order).
+/// With nothing selected, sorts the whole document. The trailing newline
+/// stays put. `None` when the lines are already sorted.
+pub fn sort_lines(text: &str, selection: Range<usize>) -> Option<LineEdit> {
+    let range = if selection.is_empty() {
+        0..text.strip_suffix('\n').unwrap_or(text).len()
+    } else {
+        line_block(text, &selection)
+    };
+    let mut lines: Vec<&str> = text[range.clone()].split('\n').collect();
+    lines.sort_by_cached_key(|line| line.to_lowercase());
+    let sorted = lines.join("\n");
+    if sorted == text[range.clone()] {
+        return None;
+    }
+    let selection = if selection.is_empty() { selection } else { range.start..range.start + sorted.len() };
+    Some(LineEdit { range, text: sorted, selection })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Case {
+    Upper,
+    Lower,
+    Title,
+}
+
+/// Changes the case of the selection, or of the word under the cursor when
+/// nothing is selected. `None` when there's no word or nothing changes.
+pub fn change_case(text: &str, selection: Range<usize>, case: Case) -> Option<LineEdit> {
+    let range = if selection.is_empty() { word_at(text, selection.start) } else { selection.clone() };
+    if range.is_empty() {
+        return None;
+    }
+    let original = &text[range.clone()];
+    let changed = match case {
+        Case::Upper => original.to_uppercase(),
+        Case::Lower => original.to_lowercase(),
+        Case::Title => title_case(original),
+    };
+    if changed == original {
+        return None;
+    }
+    let end = range.start + changed.len();
+    let selection = if selection.is_empty() {
+        selection.start.min(end)..selection.start.min(end)
+    } else {
+        range.start..end
+    };
+    Some(LineEdit { range, text: changed, selection })
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn word_at(text: &str, offset: usize) -> Range<usize> {
+    let start = text[..offset]
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_word_char(*c))
+        .last()
+        .map_or(offset, |(i, _)| i);
+    let end = text[offset..].find(|c: char| !is_word_char(c)).map_or(text.len(), |i| offset + i);
+    start..end
+}
+
+/// Upper-cases the first letter of each word and lower-cases the rest.
+fn title_case(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut at_word_start = true;
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            if at_word_start {
+                out.extend(c.to_uppercase());
+            } else {
+                out.extend(c.to_lowercase());
+            }
+            at_word_start = false;
+        } else {
+            out.push(c);
+            at_word_start = c != '\'';
+        }
+    }
+    out
 }
 
 /// Cleanup for saving: strips spaces and tabs from line ends (unless
@@ -270,6 +356,42 @@ mod tests {
         result.replace_range(edit.range, &edit.text);
         let Range { start, end } = edit.selection;
         format!("{}[{}]{}", &result[..start], &result[start..end], &result[end..])
+    }
+
+    #[test]
+    fn sorts_the_selected_lines_ignoring_case() {
+        let text = "keep\npear\nApple\nbanana\nlast";
+        // "pear" through "banana" selected.
+        assert_eq!(apply(text, sort_lines(text, 5..22).unwrap()), "keep\n[Apple\nbanana\npear]\nlast");
+    }
+
+    #[test]
+    fn sorts_the_whole_document_with_nothing_selected() {
+        let text = "c\na\nb\n";
+        assert_eq!(apply(text, sort_lines(text, 2..2).unwrap()), "a\n[]b\nc\n", "the cursor offset stays");
+        assert!(sort_lines("a\nb\n", 0..0).is_none(), "already sorted");
+    }
+
+    #[test]
+    fn changes_the_case_of_the_selection() {
+        let text = "hello wide world";
+        assert_eq!(apply(text, change_case(text, 6..16, Case::Upper).unwrap()), "hello [WIDE WORLD]");
+        assert_eq!(apply(text, change_case(text, 0..16, Case::Title).unwrap()), "[Hello Wide World]");
+        let shout = "LOUD";
+        assert_eq!(apply(shout, change_case(shout, 0..4, Case::Lower).unwrap()), "[loud]");
+    }
+
+    #[test]
+    fn changes_the_word_under_the_cursor_with_nothing_selected() {
+        let text = "let some_name = 1;";
+        assert_eq!(apply(text, change_case(text, 7..7, Case::Upper).unwrap()), "let SOM[]E_NAME = 1;");
+        assert_eq!(apply(text, change_case(text, 13..13, Case::Upper).unwrap()), "let SOME_NAME[] = 1;", "touching the word's end counts");
+        assert!(change_case(text, 15..15, Case::Upper).is_none(), "no word between `=` and the space");
+    }
+
+    #[test]
+    fn title_case_handles_apostrophes_and_mixed_case() {
+        assert_eq!(title_case("don't STOP me-now"), "Don't Stop Me-Now");
     }
 
     #[test]

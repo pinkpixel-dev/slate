@@ -4,12 +4,24 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
 use super::{KEY_CONTEXT, Workspace};
-use crate::line_ops::{self, LineEdit};
+use crate::line_ops::{self, Case, LineEdit};
 use crate::theme::{MAX_EDITOR_FONT_SIZE, MIN_EDITOR_FONT_SIZE};
 
 actions!(
     slate,
-    [DuplicateLine, MoveLineUp, MoveLineDown, ToggleComment, ZoomIn, ZoomOut, ResetZoom]
+    [
+        DuplicateLine,
+        MoveLineUp,
+        MoveLineDown,
+        ToggleComment,
+        SortLines,
+        UpperCase,
+        LowerCase,
+        TitleCase,
+        ZoomIn,
+        ZoomOut,
+        ResetZoom
+    ]
 );
 
 const ZOOM_STEP: f32 = 1.;
@@ -72,6 +84,22 @@ impl Workspace {
             return;
         };
         self.edit_lines(window, cx, |text, selection| line_ops::toggle_comment(text, selection, comment));
+    }
+
+    pub(super) fn sort_lines(&mut self, _: &SortLines, window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_lines(window, cx, line_ops::sort_lines);
+    }
+
+    pub(super) fn upper_case(&mut self, _: &UpperCase, window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_lines(window, cx, |text, selection| line_ops::change_case(text, selection, Case::Upper));
+    }
+
+    pub(super) fn lower_case(&mut self, _: &LowerCase, window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_lines(window, cx, |text, selection| line_ops::change_case(text, selection, Case::Lower));
+    }
+
+    pub(super) fn title_case(&mut self, _: &TitleCase, window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_lines(window, cx, |text, selection| line_ops::change_case(text, selection, Case::Title));
     }
 
     pub(super) fn zoom_in(&mut self, _: &ZoomIn, _: &mut Window, cx: &mut Context<Self>) {

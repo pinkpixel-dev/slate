@@ -6,7 +6,10 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::color_swatches::{EditColor, ToggleColorSwatches};
-use super::editing::{DuplicateLine, MoveLineDown, MoveLineUp, ResetZoom, ToggleComment, ZoomIn, ZoomOut};
+use super::editing::{
+    DuplicateLine, LowerCase, MoveLineDown, MoveLineUp, ResetZoom, SortLines, TitleCase, ToggleComment, UpperCase,
+    ZoomIn, ZoomOut,
+};
 use super::go_to_line::GoToLine;
 use super::minimap::ToggleMinimap;
 use super::preview::TogglePreview;
@@ -82,6 +85,10 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Move Line Up", || Box::new(MoveLineUp)),
             command("Move Line Down", || Box::new(MoveLineDown)),
             command("Toggle Comment", || Box::new(ToggleComment)).keywords(&["uncomment"]),
+            command("Sort Lines", || Box::new(SortLines)).keywords(&["alphabetical", "order"]),
+            command("Transform to Uppercase", || Box::new(UpperCase)).keywords(&["case", "caps"]),
+            command("Transform to Lowercase", || Box::new(LowerCase)).keywords(&["case"]),
+            command("Transform to Title Case", || Box::new(TitleCase)).keywords(&["case", "capitalize"]),
             command("Edit Color...", || Box::new(EditColor)).keywords(&["picker", "swatch", "hex", "rgb", "hsl"]),
         ],
     ),

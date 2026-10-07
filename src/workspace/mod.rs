@@ -48,6 +48,7 @@ use std::rc::Rc;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
 use gpui_kit::component::input::{Editor, InputState};
+use gpui_kit::component::resizable::ResizableState;
 use gpui_kit::component::v_flex;
 use gpui_kit::*;
 
@@ -133,6 +134,8 @@ pub struct Workspace {
     tab_scroll: ScrollHandle,
     sidebar: Entity<Sidebar>,
     sidebar_open: bool,
+    /// The sidebar and editor split, kept here so its sizes outlive the panel.
+    body_layout: Entity<ResizableState>,
     font_pickers: Option<FontPickers>,
     find: FindBar,
     palette: Entity<CommandState>,
@@ -166,7 +169,11 @@ impl Workspace {
             .inspect_err(|err| eprintln!("slate: theme hot reload is off: {err}"))
             .ok();
         let sidebar = cx.new(|cx| Sidebar::new(settings.show_hidden_files, cx));
-        let mut subscriptions = vec![cx.subscribe_in(&sidebar, window, Self::on_sidebar_event)];
+        let body_layout = cx.new(|_| ResizableState::default());
+        let mut subscriptions = vec![
+            cx.subscribe_in(&sidebar, window, Self::on_sidebar_event),
+            cx.subscribe(&body_layout, Self::on_body_resized),
+        ];
         let (find, find_subscriptions) = FindBar::new(window, cx);
         subscriptions.extend(find_subscriptions);
         let go_to_line = go_to_line::new_input(window, cx);
@@ -184,6 +191,7 @@ impl Workspace {
             tab_scroll: ScrollHandle::new(),
             sidebar,
             sidebar_open: false,
+            body_layout,
             font_pickers: None,
             find,
             palette: cx.new(|cx| CommandState::new(window, cx)),
@@ -398,6 +406,10 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::move_line_up))
             .on_action(cx.listener(Self::move_line_down))
             .on_action(cx.listener(Self::toggle_comment))
+            .on_action(cx.listener(Self::sort_lines))
+            .on_action(cx.listener(Self::upper_case))
+            .on_action(cx.listener(Self::lower_case))
+            .on_action(cx.listener(Self::title_case))
             .on_action(cx.listener(Self::zoom_in))
             .on_action(cx.listener(Self::zoom_out))
             .on_action(cx.listener(Self::reset_zoom))

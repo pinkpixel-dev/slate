@@ -7,6 +7,20 @@
 - Right-click a tab for Copy Path and Reveal in File Manager. Reveal opens the file's folder with the file selected, if your file manager supports that through the desktop portal
 - Both are in the command palette too (Copy File Path, Reveal in File Manager), and they work on the current tab
 
+### ✏️ Editing
+
+- Sort Lines in the palette sorts the selected lines A to Z, ignoring case. With nothing selected, it sorts the whole file
+- Transform to Uppercase, Lowercase, and Title Case in the palette. They change the selection, or the word under the cursor when nothing is selected
+- Each one is a single undo step
+
+### 📊 Status bar
+
+- With text selected, the status bar shows how much next to the cursor position, like `Ln 4, Col 2 (12 selected)` or `(40 selected, 3 lines)`
+
+### 📁 Sidebar
+
+- The sidebar remembers its width. Drag it once and it stays that wide when you hide and show it, and the next time Slate starts
+
 ### 🧹 Saving
 
 - New Trim whitespace on save setting (off by default). It strips spaces and tabs from the ends of lines and adds a final newline when the file doesn't end with one

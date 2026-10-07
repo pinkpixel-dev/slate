@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use gpui_kit::assets::IconName as CatalogIcon;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::input::{Rope, RopeExt as _};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::status_bar::StatusBar;
 use gpui_kit::component::{
@@ -192,8 +193,12 @@ impl Workspace {
 
     pub(super) fn render_status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let buffer = self.active_buffer();
-        let position = buffer.editor.read(cx).cursor_position();
-        let cursor = format!("Ln {}, Col {}", position.line + 1, position.character + 1);
+        let state = buffer.editor.read(cx);
+        let position = state.cursor_position();
+        let mut cursor = format!("Ln {}, Col {}", position.line + 1, position.character + 1);
+        if let Some(summary) = selection_summary(state.text(), state.selected_range()) {
+            cursor.push_str(&format!(" ({summary})"));
+        }
 
         StatusBar::new()
             .text_color(cx.theme().muted_foreground)
@@ -237,6 +242,20 @@ impl Workspace {
     }
 }
 
+/// "12 selected", or "40 selected, 3 lines" when the selection spans lines.
+/// Counted on the rope, so a big select-all doesn't copy the text on every redraw.
+fn selection_summary(text: &Rope, selected: std::ops::Range<usize>) -> Option<String> {
+    if selected.is_empty() {
+        return None;
+    }
+    let chars = text.byte_to_char_idx(selected.end) - text.byte_to_char_idx(selected.start);
+    let lines = text.offset_to_point(selected.end).row - text.offset_to_point(selected.start).row + 1;
+    Some(match lines {
+        1 => format!("{chars} selected"),
+        _ => format!("{chars} selected, {lines} lines"),
+    })
+}
+
 /// A folder path for display, with the home directory shortened to `~`.
 pub(super) fn display_dir(dir: &Path) -> String {
     let home = std::env::var_os("HOME").map(PathBuf::from);
@@ -244,5 +263,20 @@ pub(super) fn display_dir(dir: &Path) -> String {
         Some(rest) if rest.as_os_str().is_empty() => "~".into(),
         Some(rest) => format!("~/{}", rest.display()),
         None => dir.display().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui_kit::component::input::Rope;
+
+    use super::selection_summary;
+
+    #[test]
+    fn selection_summary_counts_characters_and_lines() {
+        let text = Rope::from_str("héllo\nworld\n");
+        assert_eq!(selection_summary(&text, 3..3), None);
+        assert_eq!(selection_summary(&text, 0..6).as_deref(), Some("5 selected"), "é is one character");
+        assert_eq!(selection_summary(&text, 0..12).as_deref(), Some("11 selected, 2 lines"));
     }
 }

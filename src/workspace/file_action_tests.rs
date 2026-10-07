@@ -1,8 +1,11 @@
 use std::path::PathBuf;
 
-use gpui_kit::{AnyWindowHandle, AppContext as _, Entity, TestAppContext};
+use gpui_kit::{AnyWindowHandle, AppContext as _, Entity, TestAppContext, px};
+
+use crate::storage::Storage;
 
 use super::Workspace;
+use super::editing::SortLines;
 use super::tab_menu::CopyPath;
 use super::tests::{open_file, open_workspace, press, test_dir};
 
@@ -56,4 +59,40 @@ fn copy_path_puts_the_full_path_on_the_clipboard(cx: &mut TestAppContext) {
     cx.run_until_parked();
     let copied = cx.read_from_clipboard().and_then(|item| item.text());
     assert_eq!(copied.as_deref(), Some(path.display().to_string().as_str()));
+}
+
+#[gpui_kit::test]
+fn sort_lines_runs_on_the_whole_file_as_one_undo_step(cx: &mut TestAppContext) {
+    let (handle, workspace, _) = tab(cx, "sort-lines", "list.txt", "pear\nApple\nbanana\n", false);
+    cx.update_window(handle, |_, window, cx| window.dispatch_action(Box::new(SortLines), cx))
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(editor_text(cx, &workspace), "Apple\nbanana\npear\n");
+
+    press(cx, handle, "ctrl-z");
+    assert_eq!(editor_text(cx, &workspace), "pear\nApple\nbanana\n");
+}
+
+#[gpui_kit::test]
+fn the_sidebar_comes_back_at_its_dragged_width(cx: &mut TestAppContext) {
+    let dir = test_dir("sidebar-width");
+    let (handle, workspace) = open_workspace(cx, &dir);
+    press(cx, handle, "ctrl-b");
+    cx.update_window(handle, |_, window, cx| {
+        window.refresh();
+        workspace.update(cx, |workspace, cx| {
+            let layout = workspace.body_layout.clone();
+            layout.update(cx, |layout, cx| layout.resize_panel(0, px(300.), window, cx));
+        });
+    })
+    .unwrap();
+    cx.run_until_parked();
+    assert_eq!(Storage::in_dir(&dir).load_state().sidebar_width, Some(300.));
+
+    // A fresh window starts the sidebar at the saved width.
+    let (handle, workspace) = open_workspace(cx, &dir);
+    press(cx, handle, "ctrl-b");
+    cx.run_until_parked();
+    let width = cx.update(|cx| workspace.read(cx).body_layout.read(cx).sizes().first().copied());
+    assert_eq!(width, Some(px(300.)));
 }

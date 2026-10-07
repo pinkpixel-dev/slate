@@ -79,6 +79,8 @@ pub enum TabColorMode {
 pub struct AppState {
     pub recent_files: Vec<PathBuf>,
     pub tab_colors: BTreeMap<PathBuf, TabColor>,
+    /// The sidebar's width from the last time it was dragged.
+    pub sidebar_width: Option<f32>,
 }
 
 impl AppState {

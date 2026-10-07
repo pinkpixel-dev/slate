@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use gpui_kit::component::resizable::{h_resizable, resizable_panel};
+use gpui_kit::component::resizable::{ResizablePanelEvent, ResizableState, h_resizable, resizable_panel};
 use gpui_kit::*;
 
 use super::files::notify_error;
@@ -61,6 +61,22 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Remembers the sidebar's width once a drag ends.
+    pub(super) fn on_body_resized(
+        &mut self,
+        layout: Entity<ResizableState>,
+        _: &ResizablePanelEvent,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(width) = layout.read(cx).sizes().first().map(|width| f32::from(*width)) else {
+            return;
+        };
+        if self.state.sidebar_width != Some(width) {
+            self.state.sidebar_width = Some(width);
+            self.save_state();
+        }
+    }
+
     pub(super) fn on_sidebar_event(
         &mut self,
         _: &Entity<Sidebar>,
@@ -83,10 +99,13 @@ impl Workspace {
         if !self.sidebar_open {
             return editor;
         }
+        // The layout state outlives the panel, so the width survives hiding the
+        // sidebar; the saved width only seeds the first render.
         h_resizable("workspace-body")
+            .with_state(&self.body_layout)
             .child(
                 resizable_panel()
-                    .size(px(SIDEBAR_WIDTH))
+                    .size(px(self.state.sidebar_width.unwrap_or(SIDEBAR_WIDTH)))
                     .size_range(px(160.)..px(480.))
                     .child(self.sidebar.clone()),
             )

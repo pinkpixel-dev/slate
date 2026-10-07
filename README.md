@@ -7,7 +7,7 @@
 ## Features
 
 - Tabs: open as many files as you like, drag to reorder, middle-click to close
-- Color-coded tabs: a thin colored line along the top of each tab makes it easy to find in a crowded row. By default, tabs cycle through the current theme's syntax colors, so they change with the theme. You can switch to coloring by language, or turn it off, in Settings. Right-click a tab to give it its own color (a preset or any custom color), which is remembered per file
+- Color-coded tabs: a thin colored line along the top of each tab makes it easy to find in a crowded row. By default, tabs cycle through the current theme's syntax colors, so they change with the theme. You can switch to coloring by language, or turn it off, in Settings. Right-click a tab to give it its own color (a preset or any custom color), which is remembered per file. The same menu has Copy Path and Reveal in File Manager
 - Open and save files with your desktop's native file dialogs, or from the terminal with `slate notes.md todo.txt`
 - An Open Recent menu next to the Open button
 - A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, and it updates by itself when files change
@@ -29,7 +29,7 @@
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
 - Color swatches: a small square after any line with a hex, `rgb()`, or `hsl()` color in it. Click it (or run Edit Color from the palette with your cursor on the value) to pick a new color, and Slate rewrites the value in the same format
 - A command palette (`Ctrl+Shift+P`) for running any command by name, with its shortcut shown next to it
-- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, color swatches, session restore, tab color mode, and hidden files
+- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, color swatches, trimming whitespace on save, session restore, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
 

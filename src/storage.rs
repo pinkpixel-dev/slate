@@ -25,6 +25,8 @@ pub struct Settings {
     pub show_minimap: bool,
     /// Show a clickable square after lines with color values in them.
     pub color_swatches: bool,
+    /// Strip trailing whitespace (not in Markdown) and add a final newline when saving.
+    pub trim_whitespace_on_save: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,
     /// Font overrides; `None` keeps the theme's (or Kit's) default.
@@ -47,6 +49,7 @@ impl Default for Settings {
             restore_session: true,
             show_minimap: true,
             color_swatches: true,
+            trim_whitespace_on_save: false,
             theme: None,
             ui_font: None,
             ui_font_size: None,

@@ -1,12 +1,15 @@
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::color_picker::{ColorPickerState, ColorSelect};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
+use gpui_kit::component::notification::Notification;
 use gpui_kit::component::{ActiveTheme as _, WindowExt as _, h_flex, v_flex};
 use gpui_kit::*;
 
 use super::Workspace;
 use super::buffer::BufferId;
 use crate::tab_color::TabColor;
+
+actions!(slate, [CopyPath, RevealInFileManager]);
 
 type MenuBuilder = Box<dyn Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu>;
 
@@ -20,11 +23,14 @@ impl Workspace {
             .find(|buffer| buffer.id == id)
             .and_then(|buffer| buffer.color.clone());
         let many_tabs = self.buffers.len() > 1;
+        let has_path = self.path_of(id).is_some();
 
         Box::new(move |menu, window, cx| {
             let close = this.clone();
             let close_others = this.clone();
             let colors = this.clone();
+            let copy = this.clone();
+            let reveal = this.clone();
             let current = current.clone();
 
             menu.item(PopupMenuItem::new("Close").on_click(move |_, window, cx| {
@@ -38,10 +44,56 @@ impl Workspace {
                     }),
             )
             .separator()
+            .item(
+                PopupMenuItem::new("Copy Path")
+                    .disabled(!has_path)
+                    .on_click(move |_, window, cx| {
+                        _ = copy.update(cx, |workspace, cx| workspace.copy_path(id, window, cx));
+                    }),
+            )
+            .item(
+                PopupMenuItem::new("Reveal in File Manager")
+                    .disabled(!has_path)
+                    .on_click(move |_, _, cx| {
+                        _ = reveal.update(cx, |workspace, cx| workspace.reveal(id, cx));
+                    }),
+            )
+            .separator()
             .submenu("Tab Color", window, cx, move |menu, _, _| {
                 color_menu(menu, colors.clone(), id, current.clone())
             })
         })
+    }
+
+    fn path_of(&self, id: BufferId) -> Option<std::path::PathBuf> {
+        let buffer = self.buffers.iter().find(|buffer| buffer.id == id)?;
+        buffer.document.path().map(|path| path.to_path_buf())
+    }
+
+    fn copy_path(&mut self, id: BufferId, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.path_of(id) else {
+            return;
+        };
+        cx.write_to_clipboard(ClipboardItem::new_string(path.display().to_string()));
+        window.push_notification(Notification::info("Path copied"), cx);
+    }
+
+    /// Opens the file's folder with the file selected (through the desktop
+    /// portal, falling back to `xdg-open` on the folder).
+    fn reveal(&mut self, id: BufferId, cx: &mut Context<Self>) {
+        if let Some(path) = self.path_of(id) {
+            cx.reveal_path(&path);
+        }
+    }
+
+    pub(super) fn copy_active_path(&mut self, _: &CopyPath, window: &mut Window, cx: &mut Context<Self>) {
+        let id = self.active_buffer().id;
+        self.copy_path(id, window, cx);
+    }
+
+    pub(super) fn reveal_active(&mut self, _: &RevealInFileManager, _: &mut Window, cx: &mut Context<Self>) {
+        let id = self.active_buffer().id;
+        self.reveal(id, cx);
     }
 
     fn close_others(&mut self, keep: BufferId, window: &mut Window, cx: &mut Context<Self>) {

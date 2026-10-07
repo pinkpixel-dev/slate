@@ -8,6 +8,7 @@ use gpui_kit::*;
 use super::buffer::BufferId;
 use super::{Open, PendingAction, Save, SaveAs, Workspace};
 use crate::document::{self, Document, Loaded};
+use crate::line_ops;
 
 impl Workspace {
     pub(super) fn open(&mut self, _: &Open, window: &mut Window, cx: &mut Context<Self>) {
@@ -186,6 +187,9 @@ impl Workspace {
         let Some(index) = self.index_of(id) else {
             return;
         };
+        if self.settings.trim_whitespace_on_save {
+            self.tidy_before_save(index, window, cx);
+        }
         let buffer = &mut self.buffers[index];
         buffer.saves_in_flight += 1;
         let revision = buffer.document.revision();
@@ -215,6 +219,27 @@ impl Workspace {
             });
         })
         .detach();
+    }
+
+    /// Applies the save cleanup to the editor itself, as one undo step, so
+    /// what's on screen matches what gets written.
+    fn tidy_before_save(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let buffer = &self.buffers[index];
+        // Two trailing spaces are a line break in Markdown.
+        let trim_trailing = buffer.document.language().id != "markdown";
+        let editor = buffer.editor.clone();
+        let (text, selection) = {
+            let state = editor.read(cx);
+            (state.value(), state.selected_range())
+        };
+        let Some(edit) = line_ops::tidy_whitespace(&text, selection, trim_trailing) else {
+            return;
+        };
+        editor.update(cx, |state, cx| {
+            state.set_selected_range(edit.range, cx);
+            state.replace(edit.text, window, cx);
+            state.set_selected_range(edit.selection, cx);
+        });
     }
 
     fn finish_save(

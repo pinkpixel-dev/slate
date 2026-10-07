@@ -280,6 +280,18 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     )
     .default_value(true);
 
+    let (get_trim, set_trim) = (this.clone(), this.clone());
+    let trim = SettingField::switch(
+        move |cx| current(&get_trim, cx).trim_whitespace_on_save,
+        move |trim, cx| {
+            _ = set_trim.update(cx, |workspace, _| {
+                workspace.settings.trim_whitespace_on_save = trim;
+                workspace.save_settings();
+            });
+        },
+    )
+    .default_value(false);
+
     let (get_restore, set_restore) = (this.clone(), this.clone());
     let restore = SettingField::switch(
         move |cx| current(&get_restore, cx).restore_session,
@@ -295,6 +307,10 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
             .item(SettingItem::new("Word wrap", wrap))
             .item(SettingItem::new("Minimap", minimap).description("Hidden while word wrap is on"))
             .item(SettingItem::new("Color swatches", swatches).description("Click one to pick a new color"))
+            .item(
+                SettingItem::new("Trim whitespace on save", trim)
+                    .description("Also adds a final newline. Markdown keeps trailing spaces"),
+            )
             .item(
                 SettingItem::new("Restore last session", restore)
                     .description("Reopens your tabs, unsaved edits included, when Slate starts without files"),

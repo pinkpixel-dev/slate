@@ -11,6 +11,7 @@ use super::go_to_line::GoToLine;
 use super::minimap::ToggleMinimap;
 use super::preview::TogglePreview;
 use super::quick_open::QuickOpen;
+use super::tab_menu::{CopyPath, RevealInFileManager};
 use super::{
     CloseTab, FindNext, FindPrevious, KEY_CONTEXT, NewFile, NextTab, Open, OpenFolder, OpenSettings, PreviousTab,
     Quit, Save, SaveAs, ToggleSidebar, ToggleWhitespace, ToggleWordWrap, Workspace,
@@ -69,6 +70,8 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Save", || Box::new(Save)),
             command("Save As...", || Box::new(SaveAs)),
             command("Close Tab", || Box::new(CloseTab)),
+            command("Copy File Path", || Box::new(CopyPath)).keywords(&["clipboard"]),
+            command("Reveal in File Manager", || Box::new(RevealInFileManager)).keywords(&["show", "folder", "open folder"]),
             command("Quit", || Box::new(Quit)).keywords(&["exit"]),
         ],
     ),

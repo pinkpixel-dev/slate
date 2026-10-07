@@ -39,6 +39,8 @@ mod minimap_tests;
 mod editing_tests;
 #[cfg(test)]
 mod color_swatch_tests;
+#[cfg(test)]
+mod file_action_tests;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -402,6 +404,8 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::go_to_line))
             .on_action(cx.listener(Self::quick_open))
             .on_action(cx.listener(Self::edit_color))
+            .on_action(cx.listener(Self::copy_active_path))
+            .on_action(cx.listener(Self::reveal_active))
             .on_action(cx.listener(Self::toggle_color_swatches))
             .size_full()
             .bg(cx.theme().background)

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0 - October 7, 2026
+
+### 📁 Tabs
+
+- Right-click a tab for Copy Path and Reveal in File Manager. Reveal opens the file's folder with the file selected, if your file manager supports that through the desktop portal
+- Both are in the command palette too (Copy File Path, Reveal in File Manager), and they work on the current tab
+
+### 🧹 Saving
+
+- New Trim whitespace on save setting (off by default). It strips spaces and tabs from the ends of lines and adds a final newline when the file doesn't end with one
+- The cleanup happens in the editor before the write, so what you see matches the file, and one `Ctrl+Z` brings it all back
+- Markdown keeps its trailing spaces, since two of them make a line break there
+
+### 🏷️ Versioning
+
+- Bumped to 0.10.0
+
 ## 0.9.0 - October 7, 2026
 
 ### 🎨 Color swatches

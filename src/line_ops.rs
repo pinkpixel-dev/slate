@@ -109,6 +109,45 @@ fn map_offset(offset: usize, changes: &[Change], stay_left: bool) -> usize {
     moved.max(0) as usize
 }
 
+/// Cleanup for saving: strips spaces and tabs from line ends (unless
+/// `trim_trailing` is off) and adds a final newline when the text doesn't end
+/// with one. One edit spanning the first to the last change, so it's one undo
+/// step. `None` when there's nothing to fix.
+pub fn tidy_whitespace(text: &str, selection: Range<usize>, trim_trailing: bool) -> Option<LineEdit> {
+    let mut changes = Vec::new();
+    let mut start = 0;
+    let mut last_kept = 0;
+    for line in text.split('\n') {
+        let kept = if trim_trailing { line.trim_end_matches([' ', '\t']).len() } else { line.len() };
+        if kept < line.len() {
+            changes.push(Change { at: start + kept, removed: line.len() - kept, inserted: 0 });
+        }
+        last_kept = kept;
+        start += line.len() + 1;
+    }
+    // A last line that's empty (or only whitespace being trimmed) already
+    // leaves the text ending in a newline.
+    if last_kept > 0 {
+        changes.push(Change { at: text.len(), removed: 0, inserted: 1 });
+    }
+
+    let range = changes.first()?.at..changes.last().map(|change| change.at + change.removed)?;
+    let mut replacement = String::new();
+    let mut pos = range.start;
+    for change in &changes {
+        replacement.push_str(&text[pos..change.at]);
+        if change.inserted > 0 {
+            replacement.push('\n');
+        }
+        pos = change.at + change.removed;
+    }
+    Some(LineEdit {
+        range,
+        text: replacement,
+        selection: map_offset(selection.start, &changes, true)..map_offset(selection.end, &changes, true),
+    })
+}
+
 fn is_commented(line: &str, comment: Comment) -> bool {
     let body = line.trim();
     match comment {
@@ -231,6 +270,35 @@ mod tests {
         result.replace_range(edit.range, &edit.text);
         let Range { start, end } = edit.selection;
         format!("{}[{}]{}", &result[..start], &result[start..end], &result[end..])
+    }
+
+    #[test]
+    fn tidy_trims_line_ends_and_adds_a_final_newline() {
+        let text = "a  \nb\t\nc";
+        assert_eq!(apply(text, tidy_whitespace(text, 1..1, true).unwrap()), "a[]\nb\nc\n");
+        // A cursor past the trimmed spaces lands at the new line end.
+        assert_eq!(apply(text, tidy_whitespace(text, 3..3, true).unwrap()), "a[]\nb\nc\n");
+        assert_eq!(apply(text, tidy_whitespace(text, 6..6, true).unwrap()), "a\nb[]\nc\n");
+        assert_eq!(apply(text, tidy_whitespace(text, 7..7, true).unwrap()), "a\nb\n[]c\n");
+    }
+
+    #[test]
+    fn tidy_leaves_clean_text_alone() {
+        assert!(tidy_whitespace("a\nb\n", 0..0, true).is_none());
+        assert!(tidy_whitespace("", 0..0, true).is_none());
+        assert!(tidy_whitespace("a\n\n", 0..0, true).is_none(), "extra blank lines are kept");
+    }
+
+    #[test]
+    fn tidy_without_trimming_only_adds_the_newline() {
+        let text = "line one  \nline two";
+        assert_eq!(apply(text, tidy_whitespace(text, 0..0, false).unwrap()), "[]line one  \nline two\n");
+    }
+
+    #[test]
+    fn tidy_doesnt_double_the_newline_after_a_whitespace_line() {
+        let text = "a\n   ";
+        assert_eq!(apply(text, tidy_whitespace(text, 0..0, true).unwrap()), "[]a\n");
     }
 
     #[test]

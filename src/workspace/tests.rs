@@ -281,6 +281,22 @@ fn ctrl_b_opens_the_active_files_folder(cx: &mut TestAppContext) {
     cx.update(|cx| assert!(!workspace.read(cx).sidebar_open));
 }
 
+#[gpui_kit::test]
+fn navigating_up_keeps_the_previous_folder_expanded(cx: &mut TestAppContext) {
+    let dir = folder_fixture("navigate-up");
+    let (handle, workspace) = open_workspace(cx, &dir);
+    open_file(cx, handle, &workspace, &dir.join("project/src"));
+    assert_eq!(sidebar_labels(cx, &workspace), ["main.rs"]);
+
+    cx.update(|cx| {
+        let sidebar = workspace.read(cx).sidebar.clone();
+        sidebar.update(cx, |sidebar, cx| sidebar.navigate_to(dir.clone(), cx));
+    });
+
+    cx.update(|cx| assert_eq!(workspace.read(cx).sidebar.read(cx).root(), Some(dir.as_path())));
+    assert_eq!(sidebar_labels(cx, &workspace), ["config", "project", "src", "main.rs", "README.md"]);
+}
+
 fn theme_name(cx: &mut TestAppContext) -> String {
     cx.update(|cx| Theme::global(cx).theme_name().to_string())
 }

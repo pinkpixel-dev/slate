@@ -10,7 +10,7 @@
 - Color-coded tabs: a thin colored line along the top of each tab makes it easy to find in a crowded row. By default, tabs cycle through the current theme's syntax colors, so they change with the theme. You can switch to coloring by language, or turn it off, in Settings. Right-click a tab to give it its own color (a preset or any custom color), which is remembered per file. The same menu has Copy Path and Reveal in File Manager
 - Open and save files with your desktop's native file dialogs, or from the terminal with `slate notes.md todo.txt`
 - An Open Recent menu next to the Open button
-- A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, updates by itself when files change, and remembers how wide you dragged it
+- A file sidebar (`Ctrl+B`) for browsing a folder. It hides dotfiles and folders like `node_modules` until you ask for them, updates by itself when files change, and remembers how wide you dragged it. The header is a clickable path, so you can go up a level, jump to any folder above, or right-click a folder to make it the new root
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - Line shortcuts: duplicate a line (`Ctrl+Shift+D`), move lines up or down (`Alt+Up/Down`), and comment or uncomment them (`Ctrl+/`). Sort Lines and Uppercase / Lowercase / Title Case are in the command palette. Comments use the right syntax for the language, and languages without line comments (HTML, CSS, Markdown) get each line wrapped instead

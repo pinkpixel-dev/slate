@@ -1,3 +1,4 @@
+mod breadcrumb;
 mod view;
 mod watcher;
 
@@ -21,6 +22,8 @@ pub fn init(cx: &mut App) {
 pub enum SidebarEvent {
     OpenFile(PathBuf),
     ShowHiddenChanged(bool),
+    /// The user moved the sidebar to another folder from inside it.
+    RootChanged,
 }
 
 impl EventEmitter<SidebarEvent> for Sidebar {}
@@ -61,6 +64,32 @@ impl Sidebar {
             .ok();
         self.refresh(cx);
         self.load_dir(root, cx);
+    }
+
+    /// Moves the sidebar to `dir`. Going up keeps the folder you came from
+    /// expanded, so it's easy to see where you were.
+    pub fn navigate_to(&mut self, dir: PathBuf, cx: &mut Context<Self>) {
+        let previous = self.root().map(Path::to_path_buf);
+        if previous.as_deref() == Some(dir.as_path()) {
+            return;
+        }
+        self.open_folder(dir.clone(), cx);
+        if let Some(previous) = previous.filter(|previous| previous.starts_with(&dir)) {
+            let opened: Vec<PathBuf> = previous
+                .ancestors()
+                .take_while(|ancestor| *ancestor != dir)
+                .map(Path::to_path_buf)
+                .collect();
+            if let Some(tree) = self.tree.as_mut() {
+                for folder in &opened {
+                    tree.set_expanded(folder, true);
+                }
+            }
+            for folder in opened {
+                self.load_dir(folder, cx);
+            }
+        }
+        cx.emit(SidebarEvent::RootChanged);
     }
 
     pub fn close_folder(&mut self, cx: &mut Context<Self>) {

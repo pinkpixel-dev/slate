@@ -2,6 +2,15 @@
 
 ## 0.10.0 - October 7, 2026
 
+### 📂 Sidebar
+
+- The sidebar header is now a path bar, like `… › PROJECTS › slate`. Click the parent folder to go up a level, and hover either one to see its full path
+- The `…` button lists every folder above the current one, so you can jump up several levels at once (or get there from the keyboard)
+- Right-click a folder in the tree and pick Open as Root to move into it
+- Going up keeps the folder you came from expanded, so you don't lose your place
+- There's an Open Folder button in the header now too, not only when the sidebar is empty
+- Wherever you navigate gets saved with the session, so it's still there next launch
+
 ### 📁 Tabs
 
 - Right-click a tab for Copy Path and Reveal in File Manager. Reveal opens the file's folder with the file selected, if your file manager supports that through the desktop portal

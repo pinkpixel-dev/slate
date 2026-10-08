@@ -90,6 +90,7 @@ impl Workspace {
                 self.settings.show_hidden_files = *show;
                 self.save_settings();
             }
+            SidebarEvent::RootChanged => self.schedule_session_save(cx),
         }
     }
 

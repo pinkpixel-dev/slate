@@ -20,6 +20,8 @@ pub struct Document {
     disk_modified: Option<SystemTime>,
     /// The line ending Save writes. The editor itself only holds `\n`.
     line_ending: LineEnding,
+    /// Set for read-only views like Compare with Disk, which are never saved in the session.
+    title: Option<String>,
 }
 
 impl Document {
@@ -32,7 +34,21 @@ impl Document {
             saved_revision: 0,
             disk_modified: None,
             line_ending: LineEnding::default(),
+            title: None,
         }
+    }
+
+    /// A view with its own tab name, highlighted as the language of `kind_path`.
+    pub fn scratch(title: String, kind_path: &Path) -> Self {
+        Self {
+            language: language::detect(kind_path),
+            title: Some(title),
+            ..Self::untitled(0)
+        }
+    }
+
+    pub fn is_scratch(&self) -> bool {
+        self.title.is_some()
     }
 
     pub fn from_path(path: PathBuf) -> Self {
@@ -44,6 +60,7 @@ impl Document {
             saved_revision: 0,
             disk_modified: None,
             line_ending: LineEnding::default(),
+            title: None,
         }
     }
 
@@ -56,6 +73,9 @@ impl Document {
     }
 
     pub fn display_name(&self) -> String {
+        if let (None, Some(title)) = (&self.path, &self.title) {
+            return title.clone();
+        }
         self.path
             .as_deref()
             .and_then(|path| path.file_name())
@@ -68,7 +88,7 @@ impl Document {
 
     /// `Some(n)` for an "Untitled n" document that has never been saved.
     pub fn untitled_number(&self) -> Option<usize> {
-        self.path.is_none().then_some(self.untitled_number)
+        (self.path.is_none() && self.title.is_none()).then_some(self.untitled_number)
     }
 
     /// Folder to start a Save As dialog in.
@@ -115,6 +135,7 @@ impl Document {
         if self.path.as_deref() != Some(path.as_path()) {
             self.language = language::detect(&path);
             self.path = Some(path);
+            self.title = None;
         }
         self.saved_revision = revision;
     }

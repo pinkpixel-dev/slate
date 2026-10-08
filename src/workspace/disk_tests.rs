@@ -128,3 +128,35 @@ fn restoring_edits_to_a_changed_file_shows_the_bar(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(active(cx, &workspace), ("mine one\n".into(), true, true));
 }
+
+#[gpui_kit::test]
+fn compare_opens_a_read_only_diff_tab_that_closes_quietly(cx: &mut TestAppContext) {
+    let (handle, workspace, path) = setup(cx, "disk-compare", "one\n");
+    press(cx, handle, "ctrl-end");
+    type_text(cx, handle, "mine");
+    write_externally(&path, "theirs\n");
+    notice(cx, handle, &workspace, &path);
+
+    click(cx, handle, "disk-compare");
+    let (name, text, scratch) = cx.update(|cx| {
+        let buffer = workspace.read(cx).active_buffer();
+        (
+            buffer.document.display_name(),
+            buffer.editor.read(cx).value().to_string(),
+            buffer.document.is_scratch(),
+        )
+    });
+    assert_eq!(name, "notes.txt (changes)");
+    assert!(scratch);
+    assert!(text.contains("-theirs\n+one\n+mine\n"), "{text}");
+
+    assert!(!active(cx, &workspace).1, "fresh diff tab is clean");
+    // Read-only, so typing doesn't make it unsaved and closing doesn't ask.
+    type_text(cx, handle, "x");
+    assert!(!active(cx, &workspace).1);
+    press(cx, handle, "ctrl-w");
+    let names: Vec<String> = cx.update(|cx| {
+        workspace.read(cx).buffers.iter().map(|buffer| buffer.document.display_name()).collect()
+    });
+    assert_eq!(names, ["notes.txt"]);
+}

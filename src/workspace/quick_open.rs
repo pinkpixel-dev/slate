@@ -25,6 +25,8 @@ pub(super) struct QuickOpenState {
     files: Vec<String>,
     pub matches: Vec<String>,
     query: String,
+    /// Listing recent files (absolute paths) because there's no folder to search.
+    recent: bool,
     _scan: Option<Task<()>>,
 }
 
@@ -36,6 +38,7 @@ impl QuickOpenState {
             files: Vec::new(),
             matches: Vec::new(),
             query: String::new(),
+            recent: false,
             _scan: None,
         }
     }
@@ -63,39 +66,57 @@ impl Workspace {
         if window.has_active_dialog(cx) {
             return;
         }
-        let Some(root) = self.quick_open_root(cx) else {
+        let root = self.quick_open_root(cx);
+        // Nothing to search, so offer the files opened lately instead.
+        let recent: Vec<String> = self
+            .state
+            .recent_files
+            .iter()
+            .filter(|path| path.is_file())
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        if root.is_none() && recent.is_empty() {
             window.push_notification(Notification::info("Open a folder or a file to search its files."), cx);
             return;
-        };
+        }
 
         let command = self.quick_open.command.clone();
         command.update(cx, |state, cx| {
             state.set_query("", window, cx);
-            state.set_loading(true, window, cx);
+            state.set_loading(root.is_some(), window, cx);
         });
-        self.quick_open.root = root.clone();
         self.quick_open.query.clear();
         self.quick_open.files.clear();
         self.quick_open.matches.clear();
+        self.quick_open.recent = root.is_none();
 
-        let show_hidden = self.settings.show_hidden_files;
-        let scan = cx.background_spawn({
-            let root = root.clone();
-            async move { file_index::list_files(&root, show_hidden) }
-        });
-        self.quick_open._scan = Some(cx.spawn_in(window, async move |this, cx| {
-            let files = scan.await;
-            _ = this.update_in(cx, |workspace, window, cx| {
-                let quick_open = &mut workspace.quick_open;
-                if quick_open.root != root {
-                    return;
-                }
-                quick_open.files = files;
-                quick_open.refresh_matches();
-                quick_open.command.update(cx, |state, cx| state.set_loading(false, window, cx));
-                cx.notify();
+        if let Some(root) = root {
+            self.quick_open.root = root.clone();
+            let show_hidden = self.settings.show_hidden_files;
+            let scan = cx.background_spawn({
+                let root = root.clone();
+                async move { file_index::list_files(&root, show_hidden) }
             });
-        }));
+            self.quick_open._scan = Some(cx.spawn_in(window, async move |this, cx| {
+                let files = scan.await;
+                _ = this.update_in(cx, |workspace, window, cx| {
+                    let quick_open = &mut workspace.quick_open;
+                    if quick_open.recent || quick_open.root != root {
+                        return;
+                    }
+                    quick_open.files = files;
+                    quick_open.refresh_matches();
+                    quick_open.command.update(cx, |state, cx| state.set_loading(false, window, cx));
+                    cx.notify();
+                });
+            }));
+        } else {
+            // Absolute paths, which `root.join` passes through unchanged.
+            self.quick_open.root = PathBuf::new();
+            self.quick_open.files = recent;
+            self.quick_open.refresh_matches();
+            self.quick_open._scan = None;
+        }
 
         let this = cx.entity().downgrade();
         window.open_dialog(cx, move |dialog, _, _| {
@@ -128,9 +149,12 @@ impl Workspace {
 }
 
 fn render_quick_open(state: &Entity<CommandState>, this: WeakEntity<Workspace>, cx: &App) -> Command {
-    let matches = this
+    let (matches, recent) = this
         .upgrade()
-        .map(|workspace| workspace.read(cx).quick_open.matches.clone())
+        .map(|workspace| {
+            let quick_open = &workspace.read(cx).quick_open;
+            (quick_open.matches.clone(), quick_open.recent)
+        })
         .unwrap_or_default();
     let items = matches.into_iter().map(|file| {
         let (dir, name) = match file.rsplit_once('/') {
@@ -160,7 +184,7 @@ fn render_quick_open(state: &Entity<CommandState>, this: WeakEntity<Workspace>, 
     Command::new(state)
         .bordered(false)
         .filterable(false)
-        .placeholder("Search files by name")
+        .placeholder(if recent { "Search recent files" } else { "Search files by name" })
         .max_h(px(400.))
         .items(items)
         .empty(|state, _, cx| {

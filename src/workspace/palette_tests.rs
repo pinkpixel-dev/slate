@@ -64,3 +64,21 @@ fn shortcut_hints_resolve_from_inside_the_palette(cx: &mut TestAppContext) {
         .unwrap();
     assert!(hint.is_some_and(|hint| hint.contains("\"n\"")), "Ctrl+N shows next to New File");
 }
+
+#[gpui_kit::test]
+fn quick_open_lists_recent_files_when_there_is_no_folder(cx: &mut TestAppContext) {
+    let dir = test_dir("quick-open-recent");
+    let file = dir.join("recent.md");
+    std::fs::write(&file, "hi").unwrap();
+    let (handle, workspace) = open_workspace(cx, &dir);
+    cx.update(|cx| workspace.update(cx, |workspace, _| workspace.state.add_recent(&file)));
+
+    press(cx, handle, "ctrl-p");
+    assert!(palette_open(cx, handle));
+    let matches = cx.update(|cx| workspace.read(cx).quick_open.matches.clone());
+    assert_eq!(matches, [file.to_string_lossy().into_owned()]);
+
+    press(cx, handle, "enter");
+    let opened = cx.update(|cx| workspace.read(cx).active_buffer().document.path().map(|p| p.to_path_buf()));
+    assert_eq!(opened, Some(file));
+}

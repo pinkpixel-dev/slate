@@ -1,10 +1,13 @@
+mod activation;
 mod assets;
 mod color_values;
+mod diff;
 mod document;
 mod file_index;
 mod file_tree;
 mod language;
 mod line_ops;
+mod links;
 mod minimap;
 mod session;
 mod sidebar;
@@ -21,7 +24,7 @@ use futures::StreamExt as _;
 use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
-use crate::single_instance::Claim;
+use crate::single_instance::{Claim, Request};
 use crate::storage::Storage;
 use crate::workspace::Workspace;
 
@@ -36,7 +39,12 @@ fn main() {
         .collect();
 
     // A Slate that's already running opens the files (or just comes forward) instead.
-    let mut incoming = match single_instance::claim(&single_instance::socket_path(), &file_args) {
+    // The activation token from the launcher lets it come forward under Wayland.
+    let request = Request {
+        paths: file_args.clone(),
+        token: std::env::var("XDG_ACTIVATION_TOKEN").ok().filter(|token| !token.is_empty()),
+    };
+    let mut incoming = match single_instance::claim(&single_instance::socket_path(), &request) {
         Ok(Claim::Forwarded) => return,
         Ok(Claim::Primary(incoming)) => Some(incoming),
         Err(err) => {
@@ -97,14 +105,22 @@ fn main() {
 
         if let Some(mut incoming) = incoming.take() {
             cx.spawn(async move |cx| {
-                while let Some(paths) = incoming.next().await {
+                let mut activator: Option<activation::Activator> = None;
+                while let Some(Request { paths, token }) = incoming.next().await {
                     let opened = window.update(cx, |_, window, cx| {
                         workspace.update(cx, |workspace, cx| {
                             for path in paths {
                                 workspace.open_path(path, true, window, cx);
                             }
                         });
-                        window.activate_window();
+                        if activator.is_none() {
+                            activator = activation::Activator::new(window);
+                        }
+                        match (token, &activator) {
+                            (Some(token), Some(activator)) => activator.activate(window, token),
+                            // X11, or no token: GPUI's own request (often refused on Wayland).
+                            _ => window.activate_window(),
+                        }
                     });
                     if opened.is_err() {
                         break;

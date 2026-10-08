@@ -14,16 +14,17 @@
 - Syntax highlighting for 23 languages, picked automatically from the file name
 - Line numbers, code folding, undo and redo, and multiple cursors (`Alt+Click`, or `Alt+Shift+Up/Down`)
 - Line shortcuts: duplicate a line (`Ctrl+Shift+D`), move lines up or down (`Alt+Up/Down`), and comment or uncomment them (`Ctrl+/`). Sort Lines and Uppercase / Lowercase / Title Case are in the command palette. Comments use the right syntax for the language, and languages without line comments (HTML, CSS, Markdown) get each line wrapped instead
+- Ctrl+click a URL to open it in your browser, or a file path to open it in a tab. Holding Ctrl underlines it first. Relative paths are looked up next to the current file, then in the sidebar folder
 - Go to Line (`Ctrl+G`). Type `42`, or `42:10` to land on a column too
-- Quick Open (`Ctrl+P`) for fuzzy-finding a file in the sidebar folder. With no folder open, it searches the folder of the file you're on
+- Quick Open (`Ctrl+P`) for fuzzy-finding a file in the sidebar folder. With no folder open, it searches the folder of the file you're on, and with no file either, it lists your recent files
 - Zoom the editor text with `Ctrl+=` and `Ctrl+-`, and `Ctrl+0` to reset. Zoom only lasts until you close Slate, so your real font size stays whatever Settings says
 - A find and replace bar (`Ctrl+F`, `Ctrl+H`) with a match counter and a Match Case toggle. It starts at your cursor and selects the match it lands on
 - Session restore: start Slate without any files and it reopens your last tabs and sidebar folder, unsaved edits included. Quitting doesn't nag you about unsaved tabs, because they'll be right there next time. You can turn this off in Settings
-- Slate notices when an open file changes on disk. Tabs without edits just reload. If you have unsaved edits, a bar asks whether to reload or keep yours. A deleted file stays open, marked unsaved, so saving puts it back
+- Slate notices when an open file changes on disk. Tabs without edits just reload. If you have unsaved edits, a bar asks whether to reload or keep yours. Compare on that bar (or Compare with Disk in the palette) opens a read-only tab showing exactly what's different. A deleted file stays open, marked unsaved, so saving puts it back
 - A dot by the file name when you have unsaved edits. Closing an unsaved tab asks Save / Don't Save / Cancel, and so does quitting when session restore is off or you opened Slate with files
 - Word wrap (`Alt+Z`) and Show Whitespace toggles in the status bar, next to the cursor position, a count of what's selected, and the language
 - Slate guesses each file's indentation (tabs or spaces, and how wide) and line endings when it opens. Both show in the status bar, and clicking them lets you switch. A CRLF file stays CRLF when you save, unless you change it there
-- One Slate at a time: running `slate notes.txt` while Slate is already open adds a tab to that window instead of starting a second copy
+- One Slate at a time: running `slate notes.txt` while Slate is already open adds a tab to that window instead of starting a second copy. Launched from an app launcher or file manager, it brings that window to the front too, Wayland included
 - 39 built-in themes, including Slate Dark (charcoal surfaces with a muted cyan-blue accent), Slate Blue (blue-gray slate with blue, cyan, and purple syntax), Neon (dark charcoal with bright neon syntax colors), Catppuccin, Gruvbox, Tokyo Night, and Solarized. Switch from the palette button in the title bar
 - A minimap (`Ctrl+Shift+M`) with syntax colors along the right edge. Click or drag it to move around. It hides while word wrap is on
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
@@ -57,6 +58,7 @@ Slate only opens UTF-8 text. Binary files and other encodings get an error messa
 | `Ctrl+Shift+D` | Duplicate line |
 | `Alt+Up` / `Alt+Down` | Move line up / down |
 | `Ctrl+/` | Toggle comment |
+| `Ctrl+Click` | Open the URL or file path under the mouse |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom in / out / reset |
 | `Alt+Z` | Word wrap |
 | `Ctrl+Q` | Quit |

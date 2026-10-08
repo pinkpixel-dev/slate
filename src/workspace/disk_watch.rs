@@ -12,6 +12,7 @@ use gpui_kit::*;
 use notify::{RecursiveMode, Watcher as _};
 
 use super::Workspace;
+use super::compare::CompareWithDisk;
 use super::buffer::BufferId;
 use super::files::notify_error;
 use crate::document;
@@ -258,6 +259,14 @@ impl Workspace {
                     .truncate()
                     .text_sm()
                     .child(format!("{} changed on disk.", buffer.document.display_name())),
+            )
+            .child(
+                Button::new("disk-compare")
+                    .ghost()
+                    .small()
+                    .label("Compare")
+                    .tooltip("See what changed between your edits and the file on disk")
+                    .on_click(cx.listener(|this, _, window, cx| this.compare_with_disk(&CompareWithDisk, window, cx))),
             )
             .child(
                 Button::new("disk-keep")

@@ -6,6 +6,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::color_swatches::{EditColor, ToggleColorSwatches};
+use super::compare::CompareWithDisk;
 use super::editing::{
     DuplicateLine, LowerCase, MoveLineDown, MoveLineUp, ResetZoom, SortLines, TitleCase, ToggleComment, UpperCase,
     ZoomIn, ZoomOut,
@@ -75,6 +76,7 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Close Tab", || Box::new(CloseTab)),
             command("Copy File Path", || Box::new(CopyPath)).keywords(&["clipboard"]),
             command("Reveal in File Manager", || Box::new(RevealInFileManager)).keywords(&["show", "folder", "open folder"]),
+            command("Compare with Disk", || Box::new(CompareWithDisk)).keywords(&["diff", "changes", "unsaved"]),
             command("Quit", || Box::new(Quit)).keywords(&["exit"]),
         ],
     ),

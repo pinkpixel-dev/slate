@@ -5,6 +5,7 @@ use gpui_kit::component::text::TextViewState;
 use gpui_kit::*;
 
 use super::Workspace;
+use super::links;
 use super::minimap::MinimapState;
 use crate::color_values::{self, ColorLine};
 use crate::document::Document;
@@ -50,8 +51,9 @@ impl Buffer {
         let language = document.language().id;
         let indent = Indent::detect(&text).unwrap_or_default();
         let colors = Rc::new(color_values::scan(&text));
+        let workspace = cx.entity().downgrade();
         let editor = cx.new(|cx| {
-            EditorState::new(window, cx)
+            let mut state = EditorState::new(window, cx)
                 .language(language)
                 .line_number(true)
                 .folding(true)
@@ -59,7 +61,9 @@ impl Buffer {
                 // Slate draws its own find bar (`find_bar.rs`), so Ctrl+F goes up to the workspace.
                 .searchable(false)
                 .show_whitespaces(show_whitespace)
-                .tab_size(tab_size(indent))
+                .tab_size(tab_size(indent));
+            links::enable(&mut state, id, workspace);
+            state
         });
         if !text.is_empty() {
             // `set_value` doesn't emit change events, so loading isn't an edit.

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.0.0 - October 7, 2026
+
+Slate hits 1.0. Everything that was left on the roadmap is in.
+
+### 🔎 Quick Open
+
+- With no folder in the sidebar and no saved file open, `Ctrl+P` now lists your recent files instead of telling you to open something first. Type to fuzzy-filter them like any other list
+
+### 🔗 Links
+
+- Ctrl+click a URL to open it in your browser, or a file path to open it in a tab. Holding Ctrl over one underlines it so you know it's clickable
+- Paths can be absolute, start with `~`, or be relative. Relative ones are looked up next to the current file first, then in the sidebar folder. Clicking a folder path opens it in the sidebar
+
+### 💾 Changes on disk
+
+- The "changed on disk" bar has a Compare button now. It opens a read-only tab with a diff of the file on disk against your edits, so you can see what changed before picking Keep Mine or Reload
+- Compare with Disk is in the command palette too, and works on any saved tab, not only when the bar is showing
+- The diff tab doesn't ask to save when you close it, isn't kept in the session, and comparing the same file again updates it instead of opening another one
+
+### 🪟 Single instance
+
+- Opening a file from an app launcher or file manager while Slate is running now brings the window to the front under Wayland, not just X11. The launch passes its activation token to the running window. Launches from a terminal usually don't have a token, so those still open the file without raising the window
+
+### 🏷️ Versioning
+
+- Bumped to 1.0.0
+
 ## 0.10.0 - October 7, 2026
 
 ### 📂 Sidebar

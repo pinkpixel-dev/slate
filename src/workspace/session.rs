@@ -140,7 +140,7 @@ impl Workspace {
             let dirty = buffer.document.is_dirty();
             let path = buffer.document.path().map(PathBuf::from);
             let text = editor.value();
-            if path.is_none() && text.is_empty() {
+            if (path.is_none() && text.is_empty()) || buffer.document.is_scratch() {
                 continue;
             }
             if index == self.active {

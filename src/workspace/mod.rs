@@ -1,6 +1,7 @@
 mod buffer;
 mod chrome;
 mod color_swatches;
+mod compare;
 mod disk_watch;
 mod editing;
 mod files;
@@ -8,6 +9,7 @@ mod find_bar;
 mod folders;
 mod format_menus;
 mod go_to_line;
+mod links;
 mod minimap;
 mod palette;
 mod preview;
@@ -354,6 +356,8 @@ impl Workspace {
     /// The tab strip and the active editor.
     fn render_editor_column(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let editor = Editor::new(&self.active_buffer().editor)
+            // The element sets this on the state every frame, so it can't live on the state alone.
+            .readonly(self.active_buffer().document.is_scratch())
             .h_full()
             .bordered(false)
             .aria_label("Editor")
@@ -419,6 +423,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::copy_active_path))
             .on_action(cx.listener(Self::reveal_active))
             .on_action(cx.listener(Self::toggle_color_swatches))
+            .on_action(cx.listener(Self::compare_with_disk))
             .size_full()
             .bg(cx.theme().background)
             .child(self.render_title_bar(window, cx))

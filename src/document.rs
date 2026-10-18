@@ -1,5 +1,8 @@
-use std::io;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write as _};
+use std::os::unix::fs::{self as unix_fs, MetadataExt as _};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 use crate::language::{self, Language};
@@ -178,9 +181,91 @@ pub fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|meta| meta.modified()).ok()
 }
 
-/// Writes editor text with the document's line ending.
+/// Writes editor text with the document's line ending. The text goes to a temp file
+/// that's flushed to disk and renamed over the original, so a crash or power cut
+/// leaves the old file or the new one, never half of one.
 pub fn write_text(path: &Path, text: &str, line_ending: LineEnding) -> io::Result<()> {
-    std::fs::write(path, line_ending.apply(text).as_bytes())
+    let text = line_ending.apply(text);
+    let bytes = text.as_bytes();
+    // Save through a symlink to the file it points at, so the link stays a link.
+    let target = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let existing = match fs::metadata(&target) {
+        Ok(meta) => Some(meta),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => None,
+        Err(err) => return Err(err),
+    };
+    if let Some(meta) = &existing {
+        // A rename would happily replace a read-only file, so ask the file itself first.
+        OpenOptions::new().write(true).open(&target)?;
+        // A rename gives the path a new inode, which would cut its other hard links loose.
+        if meta.nlink() > 1 {
+            return write_in_place(&target, bytes);
+        }
+    }
+    match write_replacing(&target, bytes, existing.as_ref()) {
+        Ok(true) => Ok(()),
+        // The swap would change the file's owner or group.
+        Ok(false) => write_in_place(&target, bytes),
+        // The folder doesn't let us create the temp file, but the file itself is writable.
+        Err(err) if existing.is_some() && err.kind() == io::ErrorKind::PermissionDenied => {
+            write_in_place(&target, bytes)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Writes `bytes` to a hidden temp file beside `target` and renames it into place.
+/// Returns `Ok(false)` without touching `target` if the new file can't keep its owner.
+fn write_replacing(target: &Path, bytes: &[u8], existing: Option<&fs::Metadata>) -> io::Result<bool> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let dir = match target.parent() {
+        Some(dir) if !dir.as_os_str().is_empty() => dir,
+        _ => Path::new("."),
+    };
+    let name = target
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no file name"))?;
+    // Unique per save, since two saves of one file can be in flight at once.
+    let tmp = dir.join(format!(
+        ".{}.slate-{}-{}",
+        name.to_string_lossy(),
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    let result = (|| {
+        let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
+        if let Some(meta) = existing {
+            let ours = file.metadata()?;
+            if ours.uid() != meta.uid() {
+                return Ok(false);
+            }
+            if ours.gid() != meta.gid() && unix_fs::fchown(&file, None, Some(meta.gid())).is_err() {
+                return Ok(false);
+            }
+            file.set_permissions(meta.permissions())?;
+        }
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        fs::rename(&tmp, target)?;
+        // Makes the rename itself survive a power cut. Some filesystems can't sync
+        // a folder, and the data is already on disk, so a failure here is fine.
+        if let Ok(dir) = File::open(dir) {
+            let _ = dir.sync_all();
+        }
+        Ok(true)
+    })();
+    if !matches!(result, Ok(true)) {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Overwrites a file where it is, for the cases a rename can't handle.
+fn write_in_place(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut file = OpenOptions::new().write(true).truncate(true).open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
 }
 
 #[cfg(test)]
@@ -216,6 +301,90 @@ mod tests {
 
         write_text(&path, "a\nb\nc\n", loaded.line_ending).unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), b"a\r\nb\r\nc\r\n");
+    }
+
+    /// An empty folder of its own, so one test's temp files can't show up in another's.
+    fn save_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("slate-save-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn entries(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn saves_replace_the_file_and_leave_no_temp_files() {
+        let dir = save_dir("replace");
+        let path = dir.join("notes.md");
+        fs::write(&path, "old text that is longer than the new one\n").unwrap();
+
+        write_text(&path, "new\n", LineEnding::Lf).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
+
+        write_text(&dir.join("fresh.md"), "made\n", LineEnding::Lf).unwrap();
+        assert_eq!(entries(&dir), ["fresh.md", "notes.md"]);
+    }
+
+    #[test]
+    fn saves_keep_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = save_dir("perms");
+        let path = dir.join("run.sh");
+        fs::write(&path, "echo hi\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o750)).unwrap();
+
+        write_text(&path, "echo bye\n", LineEnding::Lf).unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o750);
+    }
+
+    #[test]
+    fn saves_through_a_symlink_keep_the_link() {
+        let dir = save_dir("symlink");
+        let real = dir.join("real.txt");
+        let link = dir.join("link.txt");
+        fs::write(&real, "before\n").unwrap();
+        unix_fs::symlink(&real, &link).unwrap();
+
+        write_text(&link, "after\n", LineEnding::Lf).unwrap();
+        assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_to_string(&real).unwrap(), "after\n");
+        assert_eq!(entries(&dir), ["link.txt", "real.txt"]);
+    }
+
+    #[test]
+    fn saves_keep_hard_links_together() {
+        let dir = save_dir("hardlink");
+        let one = dir.join("one.txt");
+        let two = dir.join("two.txt");
+        fs::write(&one, "before\n").unwrap();
+        fs::hard_link(&one, &two).unwrap();
+
+        write_text(&one, "after\n", LineEnding::Lf).unwrap();
+        assert_eq!(fs::read_to_string(&two).unwrap(), "after\n");
+        assert_eq!(fs::metadata(&one).unwrap().ino(), fs::metadata(&two).unwrap().ino());
+    }
+
+    #[test]
+    fn read_only_files_refuse_the_save() {
+        let dir = save_dir("readonly");
+        let path = dir.join("locked.txt");
+        fs::write(&path, "keep me\n").unwrap();
+        let mut perms = fs::metadata(&path).unwrap().permissions();
+        perms.set_readonly(true);
+        fs::set_permissions(&path, perms).unwrap();
+
+        let err = write_text(&path, "overwritten\n", LineEnding::Lf).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "keep me\n");
+        assert_eq!(entries(&dir), ["locked.txt"]);
     }
 
     #[test]

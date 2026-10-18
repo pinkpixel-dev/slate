@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 - October 18, 2026
+
+### 💾 Saving
+
+- Saves are now atomic. Slate writes to a temp file next to yours, flushes it to disk, and then swaps it in, so a crash or power cut in the middle of a save leaves the old file or the new one, never half of one
+- Permissions, symlinks, and hard links survive a save. Saving through a symlink updates the file it points at, and files with more than one hard link are still written in place so the links stay together
+
+### 🏷️ Versioning
+
+- Bumped to 1.0.1
+
 ## 1.0.0 - October 7, 2026
 
 Slate hits 1.0. Everything that was left on the roadmap is in.

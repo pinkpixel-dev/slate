@@ -2,3 +2,4 @@
 *.swp
 .DS_Store
 DOCS/
+packaging/aur/slate-1.0.1.tar.gz

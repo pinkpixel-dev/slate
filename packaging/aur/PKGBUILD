@@ -9,8 +9,9 @@ url="https://github.com/pinkpixel-dev/slate"
 license=('Apache-2.0')
 depends=(
   'fontconfig'
-  'gcc-libs'
   'glibc'
+  'hicolor-icon-theme'
+  'libgcc'
   'libxcb'
   'libxkbcommon'
   'libxkbcommon-x11'

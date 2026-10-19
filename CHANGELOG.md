@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - October 18, 2026
 
 ### ⌨️ Word completion
 
@@ -22,6 +22,10 @@
 
 - Join Lines (`Ctrl+J`) pulls the next line up onto the current one, or joins every selected line into one. The indentation in between becomes a single space, and it's one undo step
 - Markdown and plain text tabs show a word count in the status bar
+
+### 🏷️ Versioning
+
+- Bumped to 1.1.0
 
 ## 1.0.1 - October 18, 2026
 

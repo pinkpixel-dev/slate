@@ -20,6 +20,7 @@ mod settings_panel;
 mod tab_menu;
 mod tab_strip;
 mod unsaved;
+mod word_complete;
 
 #[cfg(test)]
 mod find_tests;

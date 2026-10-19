@@ -207,3 +207,30 @@ fn indentation_is_detected_and_drives_the_tab_key(cx: &mut TestAppContext) {
     press(cx, handle, "tab");
     assert!(editor_text(cx, &workspace).starts_with("\t  fn a()"));
 }
+
+/// Lets Kit's inline completion debounce run and the suggestion land.
+fn wait_for_suggestion(cx: &mut TestAppContext) {
+    cx.executor().advance_clock(std::time::Duration::from_millis(400));
+    cx.run_until_parked();
+}
+
+#[gpui_kit::test]
+fn tab_accepts_a_word_from_the_same_file(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("word-complete"));
+    type_text(cx, handle, "counter = 1\ncou");
+    wait_for_suggestion(cx);
+    press(cx, handle, "tab");
+    assert_eq!(editor_text(cx, &workspace), "counter = 1\ncounter");
+    assert!(cx.update(|cx| workspace.read(cx).active_buffer().document.is_dirty()));
+}
+
+#[gpui_kit::test]
+fn tab_indents_when_word_completion_is_off(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("word-complete-off"));
+    cx.update(|cx| workspace.update(cx, |workspace, _| workspace.settings.word_complete = false));
+    type_text(cx, handle, "counter = 1\ncou");
+    wait_for_suggestion(cx);
+    press(cx, handle, "tab");
+    assert_ne!(editor_text(cx, &workspace), "counter = 1\ncounter");
+    assert!(editor_text(cx, &workspace).starts_with("counter = 1\ncou"));
+}

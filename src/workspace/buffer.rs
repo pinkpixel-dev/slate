@@ -7,6 +7,7 @@ use gpui_kit::*;
 use super::Workspace;
 use super::links;
 use super::minimap::MinimapState;
+use super::word_complete;
 use crate::color_values::{self, ColorLine};
 use crate::document::Document;
 use crate::tab_color::TabColor;
@@ -62,7 +63,8 @@ impl Buffer {
                 .searchable(false)
                 .show_whitespaces(show_whitespace)
                 .tab_size(tab_size(indent));
-            links::enable(&mut state, id, workspace);
+            links::enable(&mut state, id, workspace.clone());
+            word_complete::enable(&mut state, workspace);
             state
         });
         if !text.is_empty() {

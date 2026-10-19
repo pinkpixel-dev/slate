@@ -16,6 +16,7 @@ mod storage;
 mod tab_color;
 mod text_format;
 mod theme;
+mod word_complete;
 mod workspace;
 
 use std::path::PathBuf;

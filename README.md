@@ -29,8 +29,9 @@
 - A minimap (`Ctrl+Shift+M`) with syntax colors along the right edge. Click or drag it to move around. It hides while word wrap is on
 - A live Markdown preview (`Ctrl+Shift+V`) that opens next to the editor and updates as you type
 - Color swatches: a small square after any line with a hex, `rgb()`, or `hsl()` color in it. Click it (or run Edit Color from the palette with your cursor on the value) to pick a new color, and Slate rewrites the value in the same format
+- Word completion: as you type, the rest of a word from the same file shows up in gray, and Tab accepts it
 - A command palette (`Ctrl+Shift+P`) for running any command by name, with its shortcut shown next to it
-- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, color swatches, trimming whitespace on save, session restore, tab color mode, and hidden files
+- A settings panel (`Ctrl+,`) for the theme, interface and editor fonts, font sizes, word wrap, the minimap, color swatches, word completion, trimming whitespace on save, session restore, tab color mode, and hidden files
 
 Slate only opens UTF-8 text. Binary files and other encodings get an error message instead of loading as garbled text, so saving can't quietly damage them.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### ⌨️ Word completion
+
+- While you type, Slate suggests the rest of the word in gray, using words already in the file. Press Tab to accept it, or keep typing to ignore it. Escape and Enter dismiss it too
+- Suggestions show up after you've typed two letters at the end of a word, and the closest match to the cursor wins. Matching is case-sensitive
+- Turn it off with the Word completion switch in Settings. With it off, Tab just indents like before
+
 ## 1.0.1 - October 18, 2026
 
 ### 💾 Saving

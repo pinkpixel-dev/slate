@@ -292,6 +292,18 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
     )
     .default_value(false);
 
+    let (get_complete, set_complete) = (this.clone(), this.clone());
+    let complete = SettingField::switch(
+        move |cx| current(&get_complete, cx).word_complete,
+        move |complete, cx| {
+            _ = set_complete.update(cx, |workspace, _| {
+                workspace.settings.word_complete = complete;
+                workspace.save_settings();
+            });
+        },
+    )
+    .default_value(true);
+
     let (get_restore, set_restore) = (this.clone(), this.clone());
     let restore = SettingField::switch(
         move |cx| current(&get_restore, cx).restore_session,
@@ -307,6 +319,7 @@ fn general_groups(this: &WeakEntity<Workspace>) -> [SettingGroup; 3] {
             .item(SettingItem::new("Word wrap", wrap))
             .item(SettingItem::new("Minimap", minimap).description("Hidden while word wrap is on"))
             .item(SettingItem::new("Color swatches", swatches).description("Click one to pick a new color"))
+            .item(SettingItem::new("Word completion", complete).description("Press Tab to accept a suggestion"))
             .item(
                 SettingItem::new("Trim whitespace on save", trim)
                     .description("Also adds a final newline. Markdown keeps trailing spaces"),

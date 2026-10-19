@@ -6,6 +6,7 @@ mod disk_watch;
 mod editing;
 mod files;
 mod find_bar;
+mod find_in_files;
 mod folders;
 mod format_menus;
 mod go_to_line;
@@ -44,13 +45,16 @@ mod editing_tests;
 mod color_swatch_tests;
 #[cfg(test)]
 mod file_action_tests;
+#[cfg(test)]
+mod navigation_tests;
 
 use std::cell::Cell;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::command::CommandState;
-use gpui_kit::component::input::{Editor, InputState};
+use gpui_kit::component::input::{Editor, InputState, Position};
 use gpui_kit::component::resizable::ResizableState;
 use gpui_kit::component::v_flex;
 use gpui_kit::*;
@@ -62,6 +66,7 @@ use crate::theme::{ThemeCatalog, ThemeWatcher};
 use buffer::{Buffer, BufferId};
 use disk_watch::FileWatcher;
 use find_bar::FindBar;
+use find_in_files::FindInFilesState;
 use minimap::MinimapDrag;
 use preview::TogglePreview;
 use quick_open::QuickOpenState;
@@ -75,6 +80,7 @@ actions!(
         Save,
         SaveAs,
         CloseTab,
+        ReopenClosedTab,
         NextTab,
         PreviousTab,
         Quit,
@@ -89,6 +95,8 @@ actions!(
 );
 
 const KEY_CONTEXT: &str = "Workspace";
+/// How many closed files Ctrl+Shift+T can bring back.
+const CLOSED_TABS_LIMIT: usize = 20;
 
 pub fn init(cx: &mut App) {
     cx.bind_keys([
@@ -97,6 +105,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-s", Save, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-shift-s", SaveAs, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-w", CloseTab, Some(KEY_CONTEXT)),
+        KeyBinding::new("ctrl-shift-t", ReopenClosedTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-tab", NextTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-pagedown", NextTab, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-shift-tab", PreviousTab, Some(KEY_CONTEXT)),
@@ -114,6 +123,7 @@ pub fn init(cx: &mut App) {
     editing::init(cx);
     go_to_line::init(cx);
     quick_open::init(cx);
+    find_in_files::init(cx);
 }
 
 /// What to do once a buffer's unsaved changes have been saved or discarded.
@@ -135,6 +145,8 @@ pub struct Workspace {
     state: AppState,
     show_whitespace: bool,
     tab_scroll: ScrollHandle,
+    /// Files closed this run, newest last, for Reopen Closed Tab.
+    closed_tabs: Vec<PathBuf>,
     sidebar: Entity<Sidebar>,
     sidebar_open: bool,
     /// The sidebar and editor split, kept here so its sizes outlive the panel.
@@ -144,6 +156,9 @@ pub struct Workspace {
     palette: Entity<CommandState>,
     go_to_line: Entity<InputState>,
     quick_open: QuickOpenState,
+    find_in_files: FindInFilesState,
+    /// A Find in Files match waiting for its file to load, to put the cursor on it.
+    pending_jump: Option<(PathBuf, Position)>,
     file_watcher: Option<FileWatcher>,
     /// Where the minimap was last painted, for its mouse handlers.
     minimap_bounds: Rc<Cell<Bounds<Pixels>>>,
@@ -192,6 +207,7 @@ impl Workspace {
             storage,
             show_whitespace: false,
             tab_scroll: ScrollHandle::new(),
+            closed_tabs: Vec::new(),
             sidebar,
             sidebar_open: false,
             body_layout,
@@ -200,6 +216,8 @@ impl Workspace {
             palette: cx.new(|cx| CommandState::new(window, cx)),
             go_to_line,
             quick_open: QuickOpenState::new(window, cx),
+            find_in_files: FindInFilesState::new(window, cx),
+            pending_jump: None,
             // Tests drive `on_files_changed` directly: real inotify events would
             // wake GPUI's deterministic test scheduler from another thread.
             file_watcher: if cfg!(test) {
@@ -280,7 +298,14 @@ impl Workspace {
         let Some(index) = self.index_of(id) else {
             return;
         };
-        self.buffers.remove(index);
+        let buffer = self.buffers.remove(index);
+        if let Some(path) = buffer.document.path() {
+            self.closed_tabs.retain(|closed| closed != path);
+            self.closed_tabs.push(path.to_path_buf());
+            if self.closed_tabs.len() > CLOSED_TABS_LIMIT {
+                self.closed_tabs.remove(0);
+            }
+        }
         if self.buffers.is_empty() {
             self.active = 0;
             self.new_untitled(window, cx);
@@ -307,6 +332,9 @@ impl Workspace {
 
     /// The tab's text changed, by an edit or by loading new text: update what mirrors it.
     fn text_changed(&mut self, id: BufferId, cx: &mut Context<Self>) {
+        if let Some(buffer) = self.buffer_mut(id) {
+            buffer.word_count.set(None);
+        }
         self.sync_preview(id, cx);
         self.mark_minimap_stale(id, cx);
         self.refresh_colors(id, cx);
@@ -325,6 +353,17 @@ impl Workspace {
     fn close_tab(&mut self, _: &CloseTab, window: &mut Window, cx: &mut Context<Self>) {
         let id = self.active_buffer().id;
         self.close_buffer(id, window, cx);
+    }
+
+    /// Opens the most recently closed file that isn't open already and still exists.
+    fn reopen_closed_tab(&mut self, _: &ReopenClosedTab, window: &mut Window, cx: &mut Context<Self>) {
+        while let Some(path) = self.closed_tabs.pop() {
+            let open = self.buffers.iter().any(|buffer| buffer.document.path() == Some(&path));
+            if !open && path.is_file() {
+                self.open_path(path, false, window, cx);
+                return;
+            }
+        }
     }
 
     fn next_tab(&mut self, _: &NextTab, window: &mut Window, cx: &mut Context<Self>) {
@@ -391,6 +430,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
             .on_action(cx.listener(Self::close_tab))
+            .on_action(cx.listener(Self::reopen_closed_tab))
             .on_action(cx.listener(Self::next_tab))
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::quit))
@@ -412,6 +452,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::move_line_down))
             .on_action(cx.listener(Self::toggle_comment))
             .on_action(cx.listener(Self::sort_lines))
+            .on_action(cx.listener(Self::join_lines))
             .on_action(cx.listener(Self::upper_case))
             .on_action(cx.listener(Self::lower_case))
             .on_action(cx.listener(Self::title_case))
@@ -420,6 +461,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::reset_zoom))
             .on_action(cx.listener(Self::go_to_line))
             .on_action(cx.listener(Self::quick_open))
+            .on_action(cx.listener(Self::find_in_files))
             .on_action(cx.listener(Self::edit_color))
             .on_action(cx.listener(Self::copy_active_path))
             .on_action(cx.listener(Self::reveal_active))

@@ -200,9 +200,13 @@ impl Workspace {
             cursor.push_str(&format!(" ({summary})"));
         }
 
+        let language = buffer.document.language();
+        let prose = language.id == "markdown" || language.id == "text";
+
         StatusBar::new()
             .text_color(cx.theme().muted_foreground)
-            .left(buffer.document.language().label)
+            .left(language.label)
+            .when(prose, |bar| bar.left(word_label(buffer.words(cx))))
             .when(buffer.document.language().id == "markdown" || buffer.preview.is_some(), |bar| {
                 bar.right(
                     Button::new("toggle-preview")
@@ -254,6 +258,13 @@ fn selection_summary(text: &Rope, selected: std::ops::Range<usize>) -> Option<St
         1 => format!("{chars} selected"),
         _ => format!("{chars} selected, {lines} lines"),
     })
+}
+
+fn word_label(words: usize) -> String {
+    match words {
+        1 => "1 word".into(),
+        _ => format!("{words} words"),
+    }
 }
 
 /// A folder path for display, with the home directory shortened to `~`.

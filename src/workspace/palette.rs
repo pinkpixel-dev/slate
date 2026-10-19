@@ -8,16 +8,17 @@ use gpui_kit::*;
 use super::color_swatches::{EditColor, ToggleColorSwatches};
 use super::compare::CompareWithDisk;
 use super::editing::{
-    DuplicateLine, LowerCase, MoveLineDown, MoveLineUp, ResetZoom, SortLines, TitleCase, ToggleComment, UpperCase,
+    DuplicateLine, JoinLines, LowerCase, MoveLineDown, MoveLineUp, ResetZoom, SortLines, TitleCase, ToggleComment, UpperCase,
     ZoomIn, ZoomOut,
 };
+use super::find_in_files::FindInFiles;
 use super::go_to_line::GoToLine;
 use super::minimap::ToggleMinimap;
 use super::preview::TogglePreview;
 use super::quick_open::QuickOpen;
 use super::tab_menu::{CopyPath, RevealInFileManager};
 use super::{
-    CloseTab, FindNext, FindPrevious, KEY_CONTEXT, NewFile, NextTab, Open, OpenFolder, OpenSettings, PreviousTab,
+    CloseTab, ReopenClosedTab, FindNext, FindPrevious, KEY_CONTEXT, NewFile, NextTab, Open, OpenFolder, OpenSettings, PreviousTab,
     Quit, Save, SaveAs, ToggleSidebar, ToggleWhitespace, ToggleWordWrap, Workspace,
 };
 
@@ -74,6 +75,7 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Save", || Box::new(Save)),
             command("Save As...", || Box::new(SaveAs)),
             command("Close Tab", || Box::new(CloseTab)),
+            command("Reopen Closed Tab", || Box::new(ReopenClosedTab)).keywords(&["undo close", "restore"]),
             command("Copy File Path", || Box::new(CopyPath)).keywords(&["clipboard"]),
             command("Reveal in File Manager", || Box::new(RevealInFileManager)).keywords(&["show", "folder", "open folder"]),
             command("Compare with Disk", || Box::new(CompareWithDisk)).keywords(&["diff", "changes", "unsaved"]),
@@ -88,6 +90,7 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
             command("Move Line Down", || Box::new(MoveLineDown)),
             command("Toggle Comment", || Box::new(ToggleComment)).keywords(&["uncomment"]),
             command("Sort Lines", || Box::new(SortLines)).keywords(&["alphabetical", "order"]),
+            command("Join Lines", || Box::new(JoinLines)).keywords(&["merge", "combine"]),
             command("Transform to Uppercase", || Box::new(UpperCase)).keywords(&["case", "caps"]),
             command("Transform to Lowercase", || Box::new(LowerCase)).keywords(&["case"]),
             command("Transform to Title Case", || Box::new(TitleCase)).keywords(&["case", "capitalize"]),
@@ -106,6 +109,7 @@ static GROUPS: &[(&str, &[PaletteCommand])] = &[
         &[
             command("Find", || Box::new(Search)).keywords(&["search"]),
             command("Find and Replace", || Box::new(Replace)).keywords(&["search"]),
+            command("Find in Files...", || Box::new(FindInFiles)).keywords(&["search", "grep", "folder", "project"]),
             command("Find Next", || Box::new(FindNext)),
             command("Find Previous", || Box::new(FindPrevious)),
         ],

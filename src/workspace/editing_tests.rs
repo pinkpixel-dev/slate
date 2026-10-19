@@ -234,3 +234,25 @@ fn tab_indents_when_word_completion_is_off(cx: &mut TestAppContext) {
     assert_ne!(editor_text(cx, &workspace), "counter = 1\ncounter");
     assert!(editor_text(cx, &workspace).starts_with("counter = 1\ncou"));
 }
+
+#[gpui_kit::test]
+fn word_completion_falls_back_to_other_tabs(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("word-complete-tabs"));
+    type_text(cx, handle, "counter_value = 1");
+    press(cx, handle, "ctrl-n");
+    type_text(cx, handle, "cou");
+    wait_for_suggestion(cx);
+    press(cx, handle, "tab");
+    assert_eq!(editor_text(cx, &workspace), "counter_value");
+}
+
+#[gpui_kit::test]
+fn ctrl_j_joins_lines(cx: &mut TestAppContext) {
+    let (handle, workspace) = open_workspace(cx, &test_dir("join-lines"));
+    type_text(cx, handle, "one\n    two\nthree");
+    press(cx, handle, "ctrl-home");
+    press(cx, handle, "ctrl-j");
+    assert_eq!(editor_text(cx, &workspace), "one two\nthree");
+    press(cx, handle, "ctrl-z");
+    assert_eq!(editor_text(cx, &workspace), "one\n    two\nthree", "one undo step");
+}

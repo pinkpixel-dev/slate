@@ -1,12 +1,14 @@
-//! Word completion from the text around the cursor: the ghost text Tab accepts.
+//! Word completion from the text around the cursor and other open tabs: the
+//! ghost text Tab accepts.
 
 /// Shortest typed prefix that gets a suggestion, so one letter doesn't
 /// flash a guess on every keystroke.
 const MIN_PREFIX: usize = 2;
 
-/// The rest of the closest word in `text` that starts with the word being
-/// typed at `cursor` (a byte offset), or `None` when nothing fits.
-pub fn suggest(text: &str, cursor: usize) -> Option<String> {
+/// The rest of a word that starts with the word being typed at `cursor` (a
+/// byte offset): the closest one in `text`, or else the first one in `others`
+/// (the other open tabs, in order). `None` when nothing fits.
+pub fn suggest(text: &str, cursor: usize, others: &[String]) -> Option<String> {
     if !text.is_char_boundary(cursor) || text[cursor..].chars().next().is_some_and(is_word_char) {
         return None; // Mid-word: a suggestion would push the rest of the word along.
     }
@@ -21,10 +23,13 @@ pub fn suggest(text: &str, cursor: usize) -> Option<String> {
         return None;
     }
 
-    words(text)
-        .filter(|&(start, word)| start != prefix_start && word.len() > prefix.len() && word.starts_with(prefix))
+    let completes = |word: &str| word.len() > prefix.len() && word.starts_with(prefix);
+    let word = words(text)
+        .filter(|&(start, word)| start != prefix_start && completes(word))
         .min_by_key(|&(start, _)| start.abs_diff(cursor))
-        .map(|(_, word)| word[prefix.len()..].to_string())
+        .map(|(_, word)| word)
+        .or_else(|| others.iter().find_map(|other| words(other).map(|(_, word)| word).find(|word| completes(word))))?;
+    Some(word[prefix.len()..].to_string())
 }
 
 fn is_word_char(c: char) -> bool {
@@ -55,7 +60,7 @@ mod tests {
     /// Runs `suggest` with the cursor where `|` is.
     fn at_bar(text: &str) -> Option<String> {
         let cursor = text.find('|').unwrap();
-        suggest(&text.replacen('|', "", 1), cursor)
+        suggest(&text.replacen('|', "", 1), cursor, &[])
     }
 
     #[test]
@@ -68,6 +73,17 @@ mod tests {
         let text = "counter_far\n\n\n\ncounter_near cou|";
         assert_eq!(at_bar(text).as_deref(), Some("nter_near"));
         assert_eq!(at_bar("cou| counter_after\n\n\n\ncounter_far").as_deref(), Some("nter_after"));
+    }
+
+    #[test]
+    fn falls_back_to_other_tabs_after_this_one() {
+        let others = ["nothing here".to_string(), "let counter_other = 2;".to_string()];
+        assert_eq!(suggest("cou", 3, &others).as_deref(), Some("nter_other"));
+        assert_eq!(
+            suggest("counter_here cou", 16, &others).as_deref(),
+            Some("nter_here"),
+            "this tab's words win"
+        );
     }
 
     #[test]

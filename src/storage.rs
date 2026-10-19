@@ -27,7 +27,7 @@ pub struct Settings {
     pub color_swatches: bool,
     /// Strip trailing whitespace (not in Markdown) and add a final newline when saving.
     pub trim_whitespace_on_save: bool,
-    /// Suggest the rest of a word from the same file as ghost text that Tab accepts.
+    /// Suggest the rest of a word from open tabs as ghost text that Tab accepts.
     pub word_complete: bool,
     /// Theme name; `None` means Slate Dark.
     pub theme: Option<String>,

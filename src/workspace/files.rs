@@ -73,7 +73,7 @@ impl Workspace {
         .detach();
     }
 
-    fn focus_open_path(&mut self, path: &std::path::Path, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub(super) fn focus_open_path(&mut self, path: &std::path::Path, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let open = self
             .buffers
             .iter()
@@ -119,6 +119,7 @@ impl Workspace {
 
         let id = self.active_buffer().id;
         self.remember_file(id);
+        self.finish_pending_jump(id, window, cx);
     }
 
     pub(super) fn save(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {

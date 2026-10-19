@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui_kit::component::input::{EditorState, InputEvent, TabSize};
@@ -36,6 +37,8 @@ pub struct Buffer {
     pub colors: Rc<Vec<ColorLine>>,
     /// What Tab inserts, guessed from the file and changeable from the status bar.
     pub indent: Indent,
+    /// Words in the text, counted when the status bar first needs them after an edit.
+    pub word_count: Cell<Option<usize>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -64,7 +67,7 @@ impl Buffer {
                 .show_whitespaces(show_whitespace)
                 .tab_size(tab_size(indent));
             links::enable(&mut state, id, workspace.clone());
-            word_complete::enable(&mut state, workspace);
+            word_complete::enable(&mut state, id, workspace);
             state
         });
         if !text.is_empty() {
@@ -104,6 +107,7 @@ impl Buffer {
             minimap: MinimapState::default(),
             colors,
             indent,
+            word_count: Cell::new(None),
             _subscriptions: subscriptions,
         }
     }
@@ -118,6 +122,16 @@ impl Buffer {
         if let Some(indent) = Indent::detect(text) {
             self.set_indent(indent, cx);
         }
+    }
+
+    /// Words in the text, separated by whitespace.
+    pub fn words(&self, cx: &App) -> usize {
+        if let Some(count) = self.word_count.get() {
+            return count;
+        }
+        let count = self.editor.read(cx).text().to_string().split_whitespace().count();
+        self.word_count.set(Some(count));
+        count
     }
 
     /// An empty, untouched untitled tab that opening a file can reuse.

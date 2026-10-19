@@ -54,7 +54,7 @@ impl QuickOpenState {
 impl Workspace {
     /// Searches the sidebar folder, or the active file's folder when the
     /// sidebar has none (the same fallback as Ctrl+B).
-    fn quick_open_root(&self, cx: &App) -> Option<PathBuf> {
+    pub(super) fn quick_open_root(&self, cx: &App) -> Option<PathBuf> {
         self.sidebar
             .read(cx)
             .root()

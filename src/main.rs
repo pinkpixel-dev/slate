@@ -4,6 +4,7 @@ mod color_values;
 mod diff;
 mod document;
 mod file_index;
+mod file_search;
 mod file_tree;
 mod language;
 mod line_ops;

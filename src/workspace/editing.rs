@@ -15,6 +15,7 @@ actions!(
         MoveLineDown,
         ToggleComment,
         SortLines,
+        JoinLines,
         UpperCase,
         LowerCase,
         TitleCase,
@@ -32,6 +33,7 @@ pub(super) fn init(cx: &mut App) {
         KeyBinding::new("alt-up", MoveLineUp, Some(KEY_CONTEXT)),
         KeyBinding::new("alt-down", MoveLineDown, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-/", ToggleComment, Some(KEY_CONTEXT)),
+        KeyBinding::new("ctrl-j", JoinLines, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-=", ZoomIn, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl-+", ZoomIn, Some(KEY_CONTEXT)),
         KeyBinding::new("ctrl--", ZoomOut, Some(KEY_CONTEXT)),
@@ -88,6 +90,10 @@ impl Workspace {
 
     pub(super) fn sort_lines(&mut self, _: &SortLines, window: &mut Window, cx: &mut Context<Self>) {
         self.edit_lines(window, cx, line_ops::sort_lines);
+    }
+
+    pub(super) fn join_lines(&mut self, _: &JoinLines, window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_lines(window, cx, line_ops::join_lines);
     }
 
     pub(super) fn upper_case(&mut self, _: &UpperCase, window: &mut Window, cx: &mut Context<Self>) {

@@ -6,7 +6,22 @@
 
 - While you type, Slate suggests the rest of the word in gray, using words already in the file. Press Tab to accept it, or keep typing to ignore it. Escape and Enter dismiss it too
 - Suggestions show up after you've typed two letters at the end of a word, and the closest match to the cursor wins. Matching is case-sensitive
+- When the current file has nothing that fits, Slate looks through your other open tabs too
 - Turn it off with the Word completion switch in Settings. With it off, Tab just indents like before
+
+### 🔎 Find in Files
+
+- `Ctrl+Shift+F` searches the text of every file in the sidebar folder (or the current file's folder when the sidebar has none). Results show the matching line and where it is, and Enter opens the file with the cursor on the match
+- It's a plain-text search that ignores case for ASCII letters. It skips binary files, files that aren't UTF-8, and files over 2 MB, and it stops at 500 matches
+
+### 🗂️ Tabs
+
+- `Ctrl+Shift+T` reopens the last file you closed, and keeps going back through up to 20 of them. Files that are open again or gone from disk get skipped
+
+### ✏️ Editing
+
+- Join Lines (`Ctrl+J`) pulls the next line up onto the current one, or joins every selected line into one. The indentation in between becomes a single space, and it's one undo step
+- Markdown and plain text tabs show a word count in the status bar
 
 ## 1.0.1 - October 18, 2026
 

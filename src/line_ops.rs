@@ -1,5 +1,5 @@
 //! Editing commands that Kit's editor doesn't have: duplicate, move up and
-//! down, toggle comment, sort lines, change case, and the save cleanup. Each
+//! down, toggle comment, sort lines, join lines, change case, and the save cleanup. Each
 //! returns a single replacement, so the editor can apply it as one undoable edit.
 
 use std::ops::Range;
@@ -126,6 +126,41 @@ pub fn sort_lines(text: &str, selection: Range<usize>) -> Option<LineEdit> {
     }
     let selection = if selection.is_empty() { selection } else { range.start..range.start + sorted.len() };
     Some(LineEdit { range, text: sorted, selection })
+}
+
+/// Joins the selected lines into one, or the cursor's line with the next.
+/// Each line break and the indentation after it become one space (none next
+/// to an empty line). The cursor lands at the last join, and a selection
+/// covers the joined line. `None` on the last line.
+pub fn join_lines(text: &str, selection: Range<usize>) -> Option<LineEdit> {
+    let mut range = line_block(text, &selection);
+    if !text[range.clone()].contains('\n') {
+        if range.end == text.len() {
+            return None;
+        }
+        range.end = line_end(text, range.end + 1);
+    }
+    let mut joined = String::new();
+    let mut last_join = 0;
+    for (i, line) in text[range.clone()].split('\n').enumerate() {
+        if i == 0 {
+            joined.push_str(line.trim_end());
+            continue;
+        }
+        last_join = joined.len();
+        let line = line.trim();
+        if !joined.is_empty() && !line.is_empty() {
+            joined.push(' ');
+        }
+        joined.push_str(line);
+    }
+    let selection = if selection.is_empty() {
+        let cursor = range.start + last_join;
+        cursor..cursor
+    } else {
+        range.start..range.start + joined.len()
+    };
+    Some(LineEdit { range, text: joined, selection })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -356,6 +391,21 @@ mod tests {
         result.replace_range(edit.range, &edit.text);
         let Range { start, end } = edit.selection;
         format!("{}[{}]{}", &result[..start], &result[start..end], &result[end..])
+    }
+
+    #[test]
+    fn joins_the_cursor_line_with_the_next() {
+        let text = "fn main() {   \n    call();\n}";
+        assert_eq!(apply(text, join_lines(text, 3..3).unwrap()), "fn main() {[] call();\n}");
+        assert!(join_lines("one\ntwo", 5..5).is_none(), "the last line has nothing to join");
+    }
+
+    #[test]
+    fn joins_every_selected_line_and_skips_blank_ones() {
+        let text = "  a\n\n  b\n  c\nnext";
+        // "a" through "c" selected.
+        assert_eq!(apply(text, join_lines(text, 2..13).unwrap()), "[  a b c]\nnext");
+        assert_eq!(apply("\n  x", join_lines("\n  x", 0..0).unwrap()), "[]x", "no space after an empty line");
     }
 
     #[test]
